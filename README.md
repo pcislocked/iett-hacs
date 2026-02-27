@@ -3,7 +3,6 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![Tests](https://img.shields.io/badge/tests-37%20passed-brightgreen)](#development)
 [![HA](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1-orange)](https://github.com/pcislocked/iett-hacs/releases/tag/v0.1)
 
 Home Assistant custom component for real-time Istanbul IETT bus tracking.
@@ -74,7 +73,3 @@ content: >
 pip install -r requirements_test.txt
 pytest
 ```
-
-## Licence
-
-MIT
