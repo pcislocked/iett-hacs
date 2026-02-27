@@ -22,7 +22,6 @@ from .const import (
     FEED_ROUTE_FLEET,
     FEED_ROUTE_SCHEDULE,
     FEED_STOP_ARRIVALS,
-    FEED_TYPES,
 )
 
 _FEED_REQUIRES_HAT = {FEED_ROUTE_FLEET, FEED_ROUTE_SCHEDULE, FEED_ROUTE_ANNOUNCEMENTS}
@@ -44,15 +43,6 @@ def _step2_schema(feed_type: str) -> vol.Schema:
     if feed_type in _FEED_REQUIRES_DCODE:
         return vol.Schema({vol.Required(CONF_DCODE): str})
     return vol.Schema({})
-
-
-def _unique_id(data: dict[str, Any]) -> str:
-    ft = data[CONF_FEED_TYPE]
-    if ft in _FEED_REQUIRES_HAT:
-        return f"{ft}_{data[CONF_HAT_KODU].upper()}"
-    if ft in _FEED_REQUIRES_DCODE:
-        return f"{ft}_{data[CONF_DCODE]}"
-    return ft  # all_fleet
 
 
 def _entry_title(data: dict[str, Any]) -> str:
@@ -116,6 +106,5 @@ class IettConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _create_entry(self, params: dict[str, Any]) -> ConfigFlowResult:
         data = {**self._step1_data, **params, "feed_type": self._step1_data[CONF_FEED_TYPE]}
-        unique_id = _unique_id(data)
         self._async_abort_entries_match({"feed_type": data["feed_type"], **params})
         return self.async_create_entry(title=_entry_title(data), data=data)

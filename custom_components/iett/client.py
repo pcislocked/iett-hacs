@@ -9,6 +9,7 @@ Zero Home Assistant imports — fully testable with aioresponses.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import aiohttp
 
@@ -28,7 +29,7 @@ class IettMiddleClient:
         self._session = session
         self._base = base_url.rstrip("/")
 
-    async def _get(self, path: str) -> list:
+    async def _get(self, path: str) -> Any:
         url = f"{self._base}{path}"
         try:
             async with self._session.get(
@@ -74,3 +75,30 @@ class IettMiddleClient:
         """Active service announcements/disruptions for a route."""
         data = await self._get(f"/v1/routes/{hat_kodu}/announcements")
         return [Announcement(**item) for item in data]
+
+    # ── Discovery ──────────────────────────────────────────────────────────
+
+    async def get_stop_detail(self, dcode: str) -> dict[str, Any]:
+        """Metadata for a single stop (name, coords, district)."""
+        data = await self._get(f"/v1/stops/{dcode}")
+        # _get may return a single dict or a list — normalise to dict
+        if isinstance(data, list):
+            return data[0] if data else {}  # type: ignore[return-value]
+        return data  # type: ignore[return-value]
+
+    async def get_nearby_stops(
+        self, lat: float, lon: float, radius: int = 500
+    ) -> list[dict[str, Any]]:
+        """Stops within *radius* metres of the given coordinates."""
+        data = await self._get(f"/v1/stops/nearby?lat={lat}&lon={lon}&radius={radius}")
+        return data  # type: ignore[return-value]
+
+    async def get_garages(self) -> list[dict[str, Any]]:
+        """All IETT garages with coordinates."""
+        data = await self._get("/v1/garages")
+        return data  # type: ignore[return-value]
+
+    async def get_route_stops(self, hat_kodu: str) -> list[dict[str, Any]]:
+        """Ordered stop list for a route."""
+        data = await self._get(f"/v1/routes/{hat_kodu}/stops")
+        return data  # type: ignore[return-value]

@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import sys
 import asyncio
+from collections.abc import AsyncGenerator
+from typing import Any
 
+import aiohttp
 import pytest
 
 # Ensure selector event loop on Windows
@@ -15,7 +18,7 @@ if sys.platform == "win32":
 
 # ── Captured iett-middle API responses ──────────────────────────────────────
 
-FLEET_JSON = [
+FLEET_JSON: list[dict[str, Any]] = [
     {
         "kapino": "A-001",
         "plate": "34 HO 1000",
@@ -31,7 +34,7 @@ FLEET_JSON = [
     }
 ]
 
-ROUTE_FLEET_JSON = [
+ROUTE_FLEET_JSON: list[dict[str, Any]] = [
     {
         "kapino": "C-325",
         "plate": None,
@@ -47,7 +50,7 @@ ROUTE_FLEET_JSON = [
     }
 ]
 
-ARRIVALS_JSON = [
+ARRIVALS_JSON: list[dict[str, Any]] = [
     {
         "route_code": "500T",
         "destination": "4.LEVENT METRO - ŞİFA SONDURAK",
@@ -62,7 +65,7 @@ ARRIVALS_JSON = [
     },
 ]
 
-SCHEDULE_JSON = [
+SCHEDULE_JSON: list[dict[str, Any]] = [
     {
         "route_code": "500T",
         "route_name": "TUZLA ŞİFA MAHALLESİ - CEVİZLİBAĞ",
@@ -74,7 +77,7 @@ SCHEDULE_JSON = [
     }
 ]
 
-ANNOUNCEMENTS_JSON = [
+ANNOUNCEMENTS_JSON: list[dict[str, Any]] = [
     {
         "route_code": "500T",
         "route_name": "TUZLA ŞİFA MAHALLESİ - 4. LEVENT METRO",
@@ -84,11 +87,46 @@ ANNOUNCEMENTS_JSON = [
     }
 ]
 
+STOP_DETAIL_JSON: dict[str, Any] = {
+    "dcode": "220602",
+    "stop_name": "AHMET MİTHAT EFENDİ",
+    "latitude": 41.1234,
+    "longitude": 29.0871,
+    "district": "Üsküdar",
+}
+
+NEARBY_STOPS_JSON: list[dict[str, Any]] = [
+    {
+        "stop_code": "301341",
+        "stop_name": "4.LEVENT METRO",
+        "latitude": 41.0842,
+        "longitude": 29.0073,
+        "district": "Şişli",
+        "distance_m": 150.0,
+    }
+]
+
+GARAGE_LIST_JSON: list[dict[str, Any]] = [
+    {"code": "IKT", "name": "IKITELLI GARAJ", "latitude": 41.062, "longitude": 28.798}
+]
+
+ROUTE_STOPS_JSON: list[dict[str, Any]] = [
+    {
+        "route_code": "500T",
+        "direction": "D",
+        "sequence": 1,
+        "stop_code": "301341",
+        "stop_name": "4.LEVENT METRO",
+        "latitude": 41.0842,
+        "longitude": 29.0073,
+        "district": "Şişli",
+    }
+]
+
 MIDDLE_BASE = "http://iett-middle.test"
 
 
 @pytest.fixture()
-async def session():
-    import aiohttp
+async def session() -> AsyncGenerator[aiohttp.ClientSession, None]:
     async with aiohttp.ClientSession() as s:
         yield s

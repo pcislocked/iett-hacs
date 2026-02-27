@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -69,7 +69,7 @@ def _state_value(feed_type: str, data: list[Any]) -> int | None:
     return len(data)
 
 
-class IettSensor(CoordinatorEntity[IettCoordinator], SensorEntity):
+class IettSensor(CoordinatorEntity[IettCoordinator], SensorEntity):  # pyright: ignore[reportIncompatibleVariableOverride]
     """Single sensor for any IETT feed type."""
 
     def __init__(self, coordinator: IettCoordinator, entry: ConfigEntry) -> None:
@@ -80,16 +80,18 @@ class IettSensor(CoordinatorEntity[IettCoordinator], SensorEntity):
         self._attr_name = entry.title
         self._attr_icon = SENSOR_ICON[ft]
         self._attr_native_unit_of_measurement = SENSOR_UNIT[ft]
+        self._refresh_attributes()
 
-    @property
-    def native_value(self) -> int | None:
-        return _state_value(self.coordinator.feed_type, self.coordinator.data or [])
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._refresh_attributes()
+        self.async_write_ha_state()
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _refresh_attributes(self) -> None:
         data = self.coordinator.data or []
+        self._attr_native_value = _state_value(self.coordinator.feed_type, data)
         data_key = DATA_KEY[self.coordinator.feed_type]
-        return {
+        self._attr_extra_state_attributes = {
             "feed_type": self.coordinator.feed_type,
             data_key: [asdict(item) for item in data],  # type: ignore[call-overload]
             "count": len(data),

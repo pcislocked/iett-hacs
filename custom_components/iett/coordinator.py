@@ -38,6 +38,9 @@ class IettCoordinator(DataUpdateCoordinator[list[Any]]):
         self._hat_kodu: str = entry_data.get(CONF_HAT_KODU, "")
         self._dcode: str = entry_data.get(CONF_DCODE, "")
 
+        if self.feed_type not in UPDATE_INTERVALS:
+            raise ValueError(f"Unknown feed type: {self.feed_type!r}")
+
         super().__init__(
             hass,
             _LOGGER,

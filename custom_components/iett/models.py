@@ -4,7 +4,8 @@ Zero Home Assistant imports — usable in plain Python tests.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
+from typing import Any
 
 
 @dataclass
@@ -21,7 +22,7 @@ class BusPosition:
     direction: str | None = None
     nearest_stop: str | None = None
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -32,7 +33,7 @@ class Arrival:
     eta_raw: str
     eta_minutes: int | None = None
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -46,7 +47,7 @@ class ScheduledDeparture:
     service_type: str
     departure_time: str
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -58,7 +59,7 @@ class Announcement:
     updated_at: str
     message: str
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -73,7 +74,7 @@ class RouteStop:
     longitude: float
     district: str | None = None
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
