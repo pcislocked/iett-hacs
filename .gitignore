@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# editor
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# HA dev
+.home-assistant/

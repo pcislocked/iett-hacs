@@ -1,0 +1,27 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up IETT",
+        "description": "Connect to your iett-middle instance",
+        "data": {
+          "middle_url": "iett-middle URL",
+          "feed_type": "Feed type"
+        }
+      },
+      "params": {
+        "title": "Feed parameters",
+        "data": {
+          "hat_kodu": "Route code (e.g. 500T)",
+          "dcode": "Stop code (e.g. 220602)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to iett-middle. Check the URL and make sure the service is running."
+    },
+    "abort": {
+      "already_configured": "This feed is already configured."
+    }
+  }
+}

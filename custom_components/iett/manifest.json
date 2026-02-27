@@ -1,0 +1,12 @@
+{
+  "domain": "iett",
+  "name": "IETT",
+  "documentation": "https://github.com/pcislocked/iett-hacs",
+  "issue_tracker": "https://github.com/pcislocked/iett-hacs/issues",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@pcislocked"],
+  "version": "0.1.0",
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}
