@@ -1,12 +1,12 @@
 {
   "domain": "iett",
-  "name": "IETT",
-  "documentation": "https://github.com/pcislocked/iett-hacs",
-  "issue_tracker": "https://github.com/pcislocked/iett-hacs/issues",
-  "requirements": [],
-  "dependencies": [],
+  "name": "İETT Istanbul Bus Tracker",
   "codeowners": ["@pcislocked"],
-  "version": "0.1.0",
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "websocket_api"],
+  "documentation": "https://github.com/pcislocked/iett-hacs",
   "iot_class": "cloud_polling",
-  "config_flow": true
+  "issue_tracker": "https://github.com/pcislocked/iett-hacs/issues",
+  "requirements": ["beautifulsoup4>=4.12.0"],
+  "version": "2.0.0"
 }

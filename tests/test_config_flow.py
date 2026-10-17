@@ -1,0 +1,255 @@
+"""Tests for IettConfigFlow and IettOptionsFlowHandler v2."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from homeassistant import data_entry_flow
+
+from custom_components.iett.config_flow import IettConfigFlow, IettOptionsFlowHandler
+from custom_components.iett.const import (
+    CONF_FEED_TYPE,
+    CONF_KAPINO,
+    CONF_ROUTE_CODE,
+    CONF_SCAN_INTERVAL,
+    CONF_SPEED_UNIT,
+    CONF_STOP_ATTRIBUTES,
+    CONF_STOP_CODE,
+    CONF_STOP_NAME,
+    CONF_VEHICLE_LIMIT_MODE,
+    CONF_VEHICLE_LIMIT_N,
+    DEFAULT_ROOT_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    FEED_ROOT,
+    FEED_ROUTE,
+    FEED_STOP,
+    FEED_VEHICLE,
+    LIMIT_MODE_NEAREST_N,
+    SPEED_UNIT_KMH,
+)
+from custom_components.iett.models import RouteSearchResult, StopMetadata
+
+
+@pytest.fixture()
+def mock_client() -> MagicMock:
+    client = MagicMock()
+    client.get_stop_metadata = AsyncMock(
+        return_value=StopMetadata(
+            dcode="220602",
+            name="BEŞİKTAŞ MEYDAN",
+            latitude=41.0450,
+            longitude=29.0020,
+            district="Beşiktaş",
+        )
+    )
+    client.get_routes_at_stop = AsyncMock(return_value=["500T", "14M"])
+    client.search_stops = AsyncMock(
+        return_value=[
+            StopMetadata(dcode="220602", name="BEŞİKTAŞ MEYDAN"),
+            StopMetadata(dcode="220603", name="BEŞİKTAŞ İSKELE"),
+        ]
+    )
+    client.search_routes = AsyncMock(
+        return_value=[
+            RouteSearchResult(hat_kodu="500T", name="TUZLA - CEVİZLİBAĞ"),
+        ]
+    )
+    client.get_route_variants = AsyncMock(return_value=["500T_G_D0", "500T_D_D0"])
+    return client
+
+
+def _init_flow(hass: MagicMock, client: MagicMock | None = None) -> IettConfigFlow:
+    flow = IettConfigFlow()
+    flow.hass = hass
+    flow.context = {}
+    if client:
+        flow._client = client
+    return flow
+
+
+# ---------------------------------------------------------------------------
+# Page 1 Menu Tests
+# ---------------------------------------------------------------------------
+
+
+async def test_user_step_shows_menu_with_root(hass: MagicMock) -> None:
+    flow = _init_flow(hass)
+    result = await flow.async_step_user()
+    assert result["type"] == data_entry_flow.FlowResultType.MENU
+    assert result["step_id"] == "user"
+    assert "root" in result["menu_options"]
+    assert "stop" in result["menu_options"]
+    assert "route" in result["menu_options"]
+    assert "vehicle" in result["menu_options"]
+
+
+async def test_user_step_menu_omits_root_if_already_configured(hass: MagicMock) -> None:
+    entry = MagicMock()
+    entry.data = {CONF_FEED_TYPE: FEED_ROOT}
+    hass.config_entries.async_entries = MagicMock(return_value=[entry])
+
+    flow = _init_flow(hass)
+    result = await flow.async_step_user()
+    assert result["type"] == data_entry_flow.FlowResultType.MENU
+    assert "root" not in result["menu_options"]
+    assert "stop" in result["menu_options"]
+
+
+# ---------------------------------------------------------------------------
+# Root Flow Tests
+# ---------------------------------------------------------------------------
+
+
+async def test_root_flow_creates_entry(hass: MagicMock) -> None:
+    flow = _init_flow(hass)
+    result = await flow.async_step_root()
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["title"] == "İETT İstanbul Geneli"
+    assert result["data"][CONF_FEED_TYPE] == FEED_ROOT
+    assert result["data"][CONF_SCAN_INTERVAL] == DEFAULT_ROOT_SCAN_INTERVAL
+
+
+# ---------------------------------------------------------------------------
+# Stop Wizard (1a) Tests
+# ---------------------------------------------------------------------------
+
+
+async def test_stop_flow_exact_6_digit_code(hass: MagicMock, mock_client: MagicMock) -> None:
+    flow = _init_flow(hass, mock_client)
+
+    result = await flow.async_step_stop()
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "stop"
+
+    # Enter exact 6-digit code
+    result2 = await flow.async_step_stop({"stop_query": "220602"})
+    assert result2["type"] == data_entry_flow.FlowResultType.FORM
+    assert result2["step_id"] == "stop_config"
+
+    # Complete stop config
+    result3 = await flow.async_step_stop_config(
+        {
+            CONF_VEHICLE_LIMIT_MODE: LIMIT_MODE_NEAREST_N,
+            CONF_VEHICLE_LIMIT_N: 2,
+            CONF_STOP_ATTRIBUTES: ["hatno", "plaka", "eta"],
+            CONF_SPEED_UNIT: SPEED_UNIT_KMH,
+        }
+    )
+    assert result3["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result3["data"][CONF_FEED_TYPE] == FEED_STOP
+    assert result3["data"][CONF_STOP_CODE] == "220602"
+    assert result3["data"][CONF_STOP_NAME] == "BEŞİKTAŞ MEYDAN"
+
+
+async def test_stop_flow_search_and_select(hass: MagicMock, mock_client: MagicMock) -> None:
+    flow = _init_flow(hass, mock_client)
+
+    result = await flow.async_step_stop({"stop_query": "Beşiktaş"})
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "stop_select"
+
+    result2 = await flow.async_step_stop_select({"selected_stop": "220602"})
+    assert result2["type"] == data_entry_flow.FlowResultType.FORM
+    assert result2["step_id"] == "stop_config"
+
+
+async def test_stop_flow_errors(hass: MagicMock, mock_client: MagicMock) -> None:
+    mock_client.search_stops = AsyncMock(return_value=[])
+    flow = _init_flow(hass, mock_client)
+
+    # Empty query
+    result = await flow.async_step_stop({"stop_query": ""})
+    assert result["errors"]["base"] == "invalid_stop_query"
+
+    # Not found query
+    result2 = await flow.async_step_stop({"stop_query": "NonExistentStop"})
+    assert result2["errors"]["base"] == "no_stops_found"
+
+
+# ---------------------------------------------------------------------------
+# Route Wizard (1b) Tests
+# ---------------------------------------------------------------------------
+
+
+async def test_route_flow_success(hass: MagicMock, mock_client: MagicMock) -> None:
+    flow = _init_flow(hass, mock_client)
+
+    result = await flow.async_step_route({"route_query": "500T"})
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "route_config"
+
+    result2 = await flow.async_step_route_config({})
+    assert result2["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result2["title"] == "Hat 500T"
+    assert result2["data"][CONF_FEED_TYPE] == FEED_ROUTE
+    assert result2["data"][CONF_ROUTE_CODE] == "500T"
+
+
+# ---------------------------------------------------------------------------
+# Vehicle Wizard (1c) Tests (Strict Kapı No Only)
+# ---------------------------------------------------------------------------
+
+
+async def test_vehicle_flow_strict_kapino_success(hass: MagicMock) -> None:
+    flow = _init_flow(hass)
+
+    result = await flow.async_step_vehicle(
+        {
+            CONF_KAPINO: "c-1753",
+            CONF_SPEED_UNIT: SPEED_UNIT_KMH,
+        }
+    )
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Araç C-1753"
+    assert result["data"][CONF_FEED_TYPE] == FEED_VEHICLE
+    assert result["data"][CONF_KAPINO] == "C-1753"
+
+
+async def test_vehicle_flow_rejects_plates_and_unhyphenated(hass: MagicMock) -> None:
+    flow = _init_flow(hass)
+
+    # 1. Reject unhyphenated "C1753"
+    result = await flow.async_step_vehicle({CONF_KAPINO: "C1753"})
+    assert result["errors"]["base"] == "invalid_kapino_strict"
+
+    # 2. Reject plate "34 HO 1234"
+    result2 = await flow.async_step_vehicle({CONF_KAPINO: "34 HO 1234"})
+    assert result2["errors"]["base"] == "invalid_kapino_strict"
+
+    # 3. Reject empty
+    result3 = await flow.async_step_vehicle({CONF_KAPINO: ""})
+    assert result3["errors"]["base"] == "invalid_kapino_strict"
+
+
+# ---------------------------------------------------------------------------
+# Options Flow Tests
+# ---------------------------------------------------------------------------
+
+
+async def test_options_flow(hass: MagicMock) -> None:
+    entry = MagicMock()
+    entry.entry_id = "test_entry_id"
+    entry.data = {
+        CONF_FEED_TYPE: FEED_STOP,
+        CONF_STOP_CODE: "220602",
+        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+        CONF_STOP_ATTRIBUTES: ["hatno", "eta"],
+    }
+
+    options_flow = IettOptionsFlowHandler(entry)
+    options_flow.hass = hass
+
+    result = await options_flow.async_step_init()
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    result2 = await options_flow.async_step_init(
+        user_input={
+            CONF_SCAN_INTERVAL: 45,
+            CONF_STOP_ATTRIBUTES: ["hatno", "plaka", "eta"],
+        }
+    )
+    assert result2["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    hass.config_entries.async_update_entry.assert_called_once()
+    hass.config_entries.async_reload.assert_called_once_with("test_entry_id")
