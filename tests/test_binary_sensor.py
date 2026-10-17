@@ -50,3 +50,17 @@ def test_route_alert_binary_sensor_off() -> None:
 
     assert sensor.is_on is False
     assert sensor.extra_state_attributes["announcements"] == []
+
+
+async def test_async_setup_entry_binary_sensor(hass: MagicMock) -> None:
+    from custom_components.iett.binary_sensor import async_setup_entry
+    from custom_components.iett.const import CONF_FEED_TYPE, CONF_ROUTE_CODE, FEED_ROUTE
+
+    entry = _mock_entry()
+    entry.data = {CONF_FEED_TYPE: FEED_ROUTE, CONF_ROUTE_CODE: "500T"}
+    coord = _mock_coord({"has_alert": False, "announcements": []})
+    hass.data[DOMAIN] = {entry.entry_id: coord}
+
+    entities: list[Any] = []
+    await async_setup_entry(hass, entry, entities.extend)
+    assert len(entities) == 1

@@ -109,6 +109,7 @@ async def test_async_setup_and_unload_entry(hass: MagicMock) -> None:
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
     with (
+        patch("custom_components.iett.async_get_clientsession", return_value=MagicMock()),
         patch("custom_components.iett.IettClient") as mock_client_cls,
         patch(
             "custom_components.iett.IettRootCoordinator.async_config_entry_first_refresh",

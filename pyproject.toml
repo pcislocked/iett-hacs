@@ -9,3 +9,4 @@ ignore = ["E501", "W291", "W293", "RUF012", "TRY002", "SIM117"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "-p no:homeassistant"

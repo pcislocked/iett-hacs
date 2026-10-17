@@ -91,3 +91,43 @@ def test_stop_slot_tracker() -> None:
     assert tracker.latitude == 41.0450
     assert tracker.longitude == 29.0020
     assert tracker.extra_state_attributes["kapino"] == "C-1753"
+
+
+async def test_async_setup_entry_vehicle_tracker(hass: MagicMock) -> None:
+    from custom_components.iett.const import CONF_FEED_TYPE, CONF_KAPINO, FEED_VEHICLE
+    from custom_components.iett.device_tracker import async_setup_entry
+
+    entry = _mock_entry({CONF_FEED_TYPE: FEED_VEHICLE, CONF_KAPINO: "C-1753"})
+    coord = _mock_coord({"latitude": 41.0, "longitude": 29.0})
+    hass.data[DOMAIN] = {entry.entry_id: coord}
+
+    entities: list[Any] = []
+    await async_setup_entry(hass, entry, entities.extend)
+    assert len(entities) == 1
+
+
+async def test_async_setup_entry_stop_tracker(hass: MagicMock) -> None:
+    from custom_components.iett.const import (
+        ATTR_OPT_COORDS_TRACKER,
+        CONF_FEED_TYPE,
+        CONF_STOP_ATTRIBUTES,
+        CONF_STOP_CODE,
+        CONF_STOP_NAME,
+        FEED_STOP,
+    )
+    from custom_components.iett.device_tracker import async_setup_entry
+
+    entry = _mock_entry(
+        {
+            CONF_FEED_TYPE: FEED_STOP,
+            CONF_STOP_CODE: "220602",
+            CONF_STOP_NAME: "BEŞİKTAŞ",
+            CONF_STOP_ATTRIBUTES: [ATTR_OPT_COORDS_TRACKER],
+        }
+    )
+    coord = _mock_coord({"vehicles": [{"latitude": 41.0, "longitude": 29.0}]})
+    hass.data[DOMAIN] = {entry.entry_id: coord}
+
+    entities: list[Any] = []
+    await async_setup_entry(hass, entry, entities.extend)
+    assert len(entities) == 1

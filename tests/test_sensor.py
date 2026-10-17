@@ -249,3 +249,136 @@ class TestVehicleSensors:
         assert plate_s.native_value is None
         assert coords_s.native_value == "Bilinmiyor"
         assert speed_s.native_value is None
+
+
+class TestSensorAsyncSetupEntry:
+    async def test_setup_entry_root_and_stop(self, hass: MagicMock) -> None:
+        from custom_components.iett.const import (
+            ALL_STOP_ATTRIBUTE_OPTIONS,
+            CONF_STOP_ATTRIBUTES,
+            CONF_STOP_CODE,
+            CONF_STOP_NAME,
+            CONF_VEHICLE_LIMIT_N,
+            FEED_ROOT,
+            FEED_STOP,
+        )
+        from custom_components.iett.sensor import async_setup_entry
+
+        root_coord = _mock_coord(
+            {
+                "traffic_overall": 40,
+                "traffic_europe": 42,
+                "traffic_anatolia": 38,
+                "active_fleet_count": 2500,
+            }
+        )
+        stop_coord = _mock_coord(
+            {
+                "feed_type": FEED_STOP,
+                "stop_code": "220602",
+                "stop_name": "BEŞİKTAŞ",
+                "arriving_count": 1,
+                "vehicles": [
+                    {
+                        "hatno": "500T",
+                        "plaka": "34 HO 1234",
+                        "eta": 5,
+                        "eta_mmss": "05:00",
+                        "coords": "41.0, 29.0",
+                        "dist_stop": 1200,
+                        "dist_custom": 800,
+                        "speed": 35,
+                        "amenities_summary": "Klima, WiFi",
+                    }
+                ],
+            }
+        )
+
+        entry_root = _mock_entry({CONF_FEED_TYPE: FEED_ROOT})
+        entry_stop = _mock_entry(
+            {
+                CONF_FEED_TYPE: FEED_STOP,
+                CONF_STOP_CODE: "220602",
+                CONF_STOP_NAME: "BEŞİKTAŞ",
+                CONF_VEHICLE_LIMIT_N: 1,
+                CONF_STOP_ATTRIBUTES: ALL_STOP_ATTRIBUTE_OPTIONS,
+            }
+        )
+
+        hass.data[DOMAIN] = {
+            "root_coordinator": root_coord,
+            entry_root.entry_id: root_coord,
+            entry_stop.entry_id: stop_coord,
+        }
+
+        created_entities: list[Any] = []
+        await async_setup_entry(hass, entry_root, created_entities.extend)
+        assert len(created_entities) == 4  # 4 root sensors
+
+        stop_entities: list[Any] = []
+        await async_setup_entry(hass, entry_stop, stop_entities.extend)
+        assert len(stop_entities) >= 9  # general + slot + all attributes
+
+    async def test_setup_entry_route_and_vehicle(self, hass: MagicMock) -> None:
+        from custom_components.iett.const import (
+            CONF_INCLUDE_ACTIVE_BUSES,
+            CONF_INCLUDE_ANNOUNCEMENTS,
+            CONF_INCLUDE_SCHEDULE,
+            CONF_KAPINO,
+            CONF_ROUTE_CODE,
+            FEED_ROUTE,
+            FEED_VEHICLE,
+        )
+        from custom_components.iett.sensor import async_setup_entry
+
+        root_coord = _mock_coord({"active_fleet_count": 2500})
+        route_coord = _mock_coord(
+            {
+                "feed_type": FEED_ROUTE,
+                "route_code": "500T",
+                "active_buses_count": 12,
+                "announcement_count": 1,
+                "next_dep_g_min": 10,
+                "next_dep_g_time": "14:45",
+                "next_dep_d_min": 15,
+                "next_dep_d_time": "14:50",
+            }
+        )
+        veh_coord = _mock_coord(
+            {
+                "feed_type": FEED_VEHICLE,
+                "kapino": "C-1753",
+                "online": True,
+                "plate": "34 HO 1234",
+                "latitude": 41.0,
+                "longitude": 29.0,
+                "speed": 35,
+                "route_code": "500T",
+            }
+        )
+
+        entry_route = _mock_entry(
+            {
+                CONF_FEED_TYPE: FEED_ROUTE,
+                CONF_ROUTE_CODE: "500T",
+                CONF_INCLUDE_ACTIVE_BUSES: True,
+                CONF_INCLUDE_ANNOUNCEMENTS: True,
+                CONF_INCLUDE_SCHEDULE: True,
+            }
+        )
+        entry_veh = _mock_entry({CONF_FEED_TYPE: FEED_VEHICLE, CONF_KAPINO: "C-1753"})
+
+        hass.data[DOMAIN] = {
+            "root_sensors_created": True,
+            "root_coordinator": root_coord,
+            entry_route.entry_id: route_coord,
+            entry_veh.entry_id: veh_coord,
+        }
+
+        route_entities: list[Any] = []
+        await async_setup_entry(hass, entry_route, route_entities.extend)
+        assert len(route_entities) >= 4
+
+        veh_entities: list[Any] = []
+        await async_setup_entry(hass, entry_veh, veh_entities.extend)
+        assert len(veh_entities) == 4
