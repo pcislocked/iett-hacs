@@ -61,7 +61,7 @@ async def test_migration_v1_to_v2_all_fleet(hass: MagicMock) -> None:
 async def test_migration_v1_to_v2_stop(hass: MagicMock) -> None:
     old_data = {
         CONF_FEED_TYPE: FEED_STOP,
-        "dcode": "220602",
+        "dcode": "301341",
         CONF_BASE_URL: "http://old-iett-middle:8000",
     }
     entry = _mock_entry("mig_entry_2", old_data, version=1)
@@ -75,7 +75,7 @@ async def test_migration_v1_to_v2_stop(hass: MagicMock) -> None:
     assert kwargs["version"] == 2
     assert CONF_BASE_URL not in new_data
     assert "dcode" not in new_data
-    assert new_data["stop_code"] == "220602"
+    assert new_data["stop_code"] == "301341"
     assert new_data[CONF_ROUTE_MODE] == "all"
     assert CONF_STOP_ATTRIBUTES in new_data
 
@@ -106,7 +106,7 @@ async def test_diagnostics_redacts_gps_coordinates(hass: MagicMock) -> None:
         "diag_entry_1",
         {
             CONF_FEED_TYPE: FEED_STOP,
-            "stop_code": "220602",
+            "stop_code": "301341",
             "stop_lat": 41.0450,
             "stop_lon": 29.0020,
             "custom_lat": 41.0082,
@@ -114,12 +114,12 @@ async def test_diagnostics_redacts_gps_coordinates(hass: MagicMock) -> None:
         },
     )
     entry.domain = DOMAIN
-    entry.title = "Durak 220602"
+    entry.title = "Durak 301341"
     entry.options = {"custom_lat": 41.0082}
 
     coord = MagicMock()
     coord.data = {
-        "stop_code": "220602",
+        "stop_code": "301341",
         "vehicles": [
             {
                 "kapino": "C-1753",
@@ -139,7 +139,7 @@ async def test_diagnostics_redacts_gps_coordinates(hass: MagicMock) -> None:
     }
 
     diag = await async_get_config_entry_diagnostics(hass, entry)
-    assert diag["entry"]["data"]["stop_code"] == "220602"
+    assert diag["entry"]["data"]["stop_code"] == "301341"
     assert diag["entry"]["data"]["custom_lat"] == "**REDACTED**"
     assert diag["entry"]["data"]["custom_lon"] == "**REDACTED**"
     assert diag["entry"]["data"]["stop_lat"] == "**REDACTED**"
@@ -215,8 +215,8 @@ async def test_async_setup_and_unload_entry(hass: MagicMock) -> None:
 async def test_concurrent_setup_entries_does_not_duplicate_static_route(hass: MagicMock) -> None:
     import asyncio
 
-    entry1 = _mock_entry("stop_entry_1", {CONF_FEED_TYPE: FEED_STOP, "stop_code": "220601"})
-    entry2 = _mock_entry("stop_entry_2", {CONF_FEED_TYPE: FEED_STOP, "stop_code": "219302"})
+    entry1 = _mock_entry("stop_entry_1", {CONF_FEED_TYPE: FEED_STOP, "stop_code": "301341"})
+    entry2 = _mock_entry("stop_entry_2", {CONF_FEED_TYPE: FEED_STOP, "stop_code": "117382"})
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
 
     register_calls = 0

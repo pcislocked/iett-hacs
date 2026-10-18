@@ -13,7 +13,7 @@
       },
       "stop": {
         "title": "Search Stop",
-        "description": "Enter the 6-digit stop code (e.g. 220602) or search by stop name (e.g. Besiktas Meydan, Ahmet Mithat Efendi).",
+        "description": "Enter the 6-digit stop code (e.g. 301341) or search by stop name (e.g. Besiktas Meydan, Taksim).",
         "data": {
           "stop_query": "Stop Code or Name"
         },
@@ -169,8 +169,8 @@
       "options": {
         "hatno": "Route Number",
         "plaka": "License Plate",
-        "eta": "ETA (Minutes)",
-        "eta_mmss": "Arrival mm:ss Countdown",
+        "eta": "Remaining Time — Relative ETA (Minutes, e.g. 4 min)",
+        "eta_mmss": "Estimated Arrival Clock Time — Absolute Time (HH:MM, e.g. 14:35)",
         "coords": "Coordinates (Lat, Lon Text)",
         "coords_tracker": "Create GPS Device Tracker (device_tracker on Map)",
         "dist_stop": "Distance to Stop (meters)",

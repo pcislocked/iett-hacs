@@ -71,12 +71,14 @@ async def ws_get_stop_board(
     items: list[dict[str, Any]] = []
     for arr in arrivals[:max_items]:
         dist_m = haversine_meters(arr.lat, arr.lon, meta.latitude, meta.longitude)
+        arrival_time = format_eta_mmss(arr.eta_minutes, arr.last_seen_ts, eta_raw=arr.eta_raw)
         items.append(
             {
                 "route_code": arr.route_code,
                 "destination": arr.destination,
                 "eta_minutes": arr.eta_minutes,
-                "eta_mmss": format_eta_mmss(arr.eta_minutes, arr.last_seen_ts),
+                "eta_mmss": arrival_time,
+                "eta_time": arrival_time,
                 "eta_raw": arr.eta_raw,
                 "kapino": arr.kapino,
                 "plate": arr.plate,

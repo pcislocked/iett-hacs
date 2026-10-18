@@ -1,4 +1,4 @@
-# İETT — Istanbul Bus Tracker for Home Assistant (v2.0)
+# İETT — Istanbul Bus Tracker for Home Assistant (v2.1)
 
 **100% Standalone & Serverless** Home Assistant integration for real-time Istanbul bus telemetry, stop departure boards, route monitoring, and city-wide traffic congestion metrics.
 
@@ -15,9 +15,11 @@ No external middleware or proxy server needed — communicates directly with off
   - `sensor.iett_aktif_filo_boyutu` (Active fleet size; integer-only state, 16 KB SQLite recorder safe)
 
 - **🚏 1a) Stop Tracker:**
+  - Search by 6-digit code or name with live direction (`➔ Kadıköy`) and district (`Beşiktaş`) enrichment
   - Route filter: All routes or selected routes passing by the stop
   - Vehicle quantity filter: Nearest N vehicles (1–10) or all approaching vehicles
-  - Configurable entity attributes: Route number, license plate, ETA (min), formatted ETA (mm:ss), coordinates, distance to stop (m), distance to custom point (m), vehicle speed (km/h or mph), and equipment (A/C, WiFi, USB, Accessibility)
+  - Time format: Relative remaining time (`5 dk`, `Yaklaşıyor`), Absolute arrival clock time (`14:35`), or Both (`5 dk • 14:35`)
+  - Configurable entity attributes: Route number, license plate, ETA (min), arrival clock time (HH:MM), coordinates, distance to stop (m), distance to Home Zone / custom point (m), vehicle speed (km/h or mph), and equipment (A/C, WiFi, USB, Accessibility)
   - Optional GPS device tracker for approaching buses
 
 - **🚌 1b) Route Tracker:**
@@ -33,6 +35,7 @@ No external middleware or proxy server needed — communicates directly with off
 - **📊 On-Demand Lovelace Card (`<iett-card>`):**
   - Works **with or without sensor entities** via built-in WebSocket API
   - Visibility-aware polling (zero network traffic when tab or screen is off)
+  - Relative time countdown default with instant arrival time tooltip
   - 3 visual themes: `led` (classic LED matrix), `modern` (clean transit cards), and `native` (Home Assistant theme styling)
   - Visual card editor with live search for stops and routes
 

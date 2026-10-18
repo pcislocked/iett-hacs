@@ -195,8 +195,8 @@ async def async_setup_entry(
                         stop_device,
                         slot,
                         ATTR_OPT_ETA_MMSS,
-                        f"Araç {slot} ETA (dk:sn)",
-                        icon="mdi:timer-outline",
+                        f"Araç {slot} Varış Saati",
+                        icon="mdi:clock-outline",
                     )
                 )
             if ATTR_OPT_COORDS in selected_attrs:
@@ -507,6 +507,8 @@ class IettStopVehicleObjectSensor(CoordinatorEntity[IettEntryCoordinator], Senso
         route = veh.get(ATTR_OPT_HATNO, "")
         eta = veh.get(ATTR_OPT_ETA)
         if eta is not None:
+            if eta <= 0:
+                return f"{route} (Yaklaşıyor)" if route else "Yaklaşıyor"
             return f"{route} ({eta} dk)"
         return str(route) or "Yaklaşıyor"
 

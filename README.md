@@ -1,16 +1,16 @@
-# İETT — Istanbul Bus Tracker for Home Assistant (v2.0)
+# İETT — Istanbul Bus Tracker for Home Assistant (v2.1)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![Tests](https://img.shields.io/badge/tests-75%20passed-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/tests-86%20passed-brightgreen)](#development--testing)
 [![HA](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/pcislocked/iett-hacs/releases)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](https://github.com/pcislocked/iett-hacs/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A **100% Standalone & Serverless** Home Assistant custom integration for real-time Istanbul public transport tracking. Communicates directly with official İETT SOAP, NTCAPI, and İBB TKM endpoints without requiring any external proxy or middleware.
 
 ---
 
-## Architecture (v2.0 Standalone)
+## Architecture (v2.1 Standalone)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -36,7 +36,7 @@ A **100% Standalone & Serverless** Home Assistant custom integration for real-ti
 └──────────────────────────────────────────────────────────┘
 ```
 
-- **Zero Server Setup:** No Docker containers, servers, or cloud proxies to maintain.
+- **Zero Middleware Required:** Connects straight to municipal transit endpoints from inside Home Assistant.
 - **SQLite Recorder Safe:** The ~7,000 active vehicle positions are kept strictly in Python RAM (`IettClient._fleet_by_kapino`) with TTL caching. `sensor.iett_aktif_filo_boyutu` outputs an integer count only (`extra_state_attributes = {}`), preventing Home Assistant database bloat.
 - **Resilient Fallbacks:** Real-time stop arrivals prioritize NTCAPI JSON and seamlessly fall back to İETT web HTML parsing if NTCAPI is unavailable.
 
@@ -52,18 +52,23 @@ Created automatically under the **İETT İstanbul Geneli** device upon integrati
 4. `sensor.iett_aktif_filo_boyutu` — Total active bus count on Istanbul roads (e.g. `4850 araç`)
 
 ### 2. 🚏 1a) Stop Tracker
+- **Smart Stop Search:** Search by 6-digit stop code (e.g. `301341`) or by stop name (e.g. `Beşiktaş Meydan`). Results are enriched with direction (`➔ Kadıköy`) and district (`Beşiktaş`) badges so you never pick the wrong side of the street.
 - **Route Filtering:** Track all routes or only specific routes passing through the stop.
 - **Approaching Limit:** Track nearest $N$ buses ($1$ to $10$) or all arriving vehicles.
+- **Relative vs Absolute Time Display:**
+  - **Relative (Default):** Natural countdown like `5 dk`, `3 dk`, `1 dk`, `Yaklaşıyor` (matching official displays and PWA).
+  - **Absolute:** Exact 24-hour arrival clock time (e.g. `14:35`) in Istanbul time (UTC+3).
+- **Home Zone Proximity:** Distance-to-target dynamically defaults to your Home Assistant Home Zone coordinates (`Settings` → `System` → `General` → `Home Location`), or can be set to custom coordinates.
 - **Tickbox Granular Entities:**
-  - Route number (`sensor.durak_220602_arac_1_hat_no`)
-  - License plate (`sensor.durak_220602_arac_1_plaka`)
-  - ETA minutes (`sensor.durak_220602_arac_1_eta`)
-  - Formatted countdown mm:ss (`sensor.durak_220602_arac_1_eta_dk_sn`)
-  - Haversine distance to stop in meters (`sensor.durak_220602_arac_1_duraga_mesafe`)
-  - Haversine distance to custom home/work coordinates in meters (`sensor.durak_220602_arac_1_hedefe_mesafe`)
-  - Speed in km/h or mph (`sensor.durak_220602_arac_1_hiz`)
+  - Route number (`sensor.durak_301341_arac_1_hat_no`)
+  - License plate (`sensor.durak_301341_arac_1_plaka`)
+  - ETA minutes (`sensor.durak_301341_arac_1_eta`)
+  - Arrival clock time (`sensor.durak_301341_arac_1_varis_saati`)
+  - Haversine distance to stop in meters (`sensor.durak_301341_arac_1_duraga_mesafe`)
+  - Haversine distance to home/work in meters (`sensor.durak_301341_arac_1_hedefe_mesafe`)
+  - Speed in km/h or mph (`sensor.durak_301341_arac_1_hiz`)
   - Amenities (A/C, WiFi, USB, Accessibility) summary
-  - Approaching bus GPS tracker (`device_tracker.durak_220602_arac_1`)
+  - Approaching bus GPS tracker (`device_tracker.durak_301341_arac_1`)
 
 ### 3. 🚌 1b) Route Tracker
 - Active buses operating on route with Gidiş (`G`) and Dönüş (`D`) breakdown.
@@ -82,13 +87,17 @@ Created automatically under the **İETT İstanbul Geneli** device upon integrati
 
 Included automatically with the integration! The card connects directly to Home Assistant's WebSocket API (`hass.callWS`) and can operate **with or without configured sensor entities**.
 
-### Visibility-Aware Polling
-When your browser tab is in the background or your mobile screen is locked (`document.visibilityState === "hidden"`), the card **stops all polling requests**, ensuring zero wasted network and CPU cycles. When brought back into view, it refreshes instantly.
-
-### Themes
-- `led` — Retro transit LED display.
-- `modern` — Clean card design with progress badges and amenity icons.
-- `native` — Blends seamlessly with your current Home Assistant theme.
+### Features:
+- **Visibility-Aware Polling:** Zero network traffic when the browser tab is hidden or screen is locked (`document.visibilityState === "hidden"`).
+- **Time Display Modes:**
+  - `relative` *(Default)*: Remaining minutes countdown (e.g. `5 dk`, `Yaklaşıyor`).
+  - `absolute`: Scheduled arrival clock time (e.g. `14:35`).
+  - `both`: Shows relative time with clock time (e.g. `5 dk • 14:35`).
+- **Visual Card Editor:** Full UI configuration with live preview, mode selection, and stop/route inputs.
+- **3 Visual Themes:**
+  - `led` — Retro transit LED display.
+  - `modern` — Clean card design with progress badges and amenity icons.
+  - `native` — Blends seamlessly with your current Home Assistant theme.
 
 ### Lovelace Configuration Examples
 
@@ -96,7 +105,8 @@ When your browser tab is in the background or your mobile screen is locked (`doc
 # Stop Departure Board (Zero Sensor Dependency)
 type: custom:iett-card
 mode: stop
-stop_code: "220602"
+stop_code: "301341"
+time_format: relative
 theme: led
 refresh_interval: 20
 max_items: 6
@@ -129,7 +139,7 @@ refresh_interval: 15
 alias: "İETT 500T 5 Dakika Kaldı Bildirimi"
 trigger:
   - platform: numeric_state
-    entity_id: sensor.durak_220602_arac_1_eta
+    entity_id: sensor.durak_301341_arac_1_eta
     below: 6
 condition:
   - condition: time
@@ -140,8 +150,8 @@ action:
     data:
       title: "Otobüsün Yaklaşıyor! 🚌"
       message: >
-        500T hattındaki {{ states('sensor.durak_220602_arac_1_plaka') }} plakalı araç
-        {{ states('sensor.durak_220602_arac_1_eta_dk_sn') }} içinde durakta olacak!
+        500T hattındaki {{ states('sensor.durak_301341_arac_1_plaka') }} plakalı araç
+        {{ states('sensor.durak_301341_arac_1_eta') }} dakika içinde durakta olacak!
 ```
 
 ---
@@ -152,7 +162,7 @@ action:
 # Install test dependencies
 pip install -r requirements_test.txt
 
-# Run pytest test suite (75 tests)
+# Run pytest test suite (86 tests)
 python -m pytest -v
 
 # Run linter & formatter checks

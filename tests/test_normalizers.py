@@ -99,19 +99,16 @@ class TestHaversineMeters:
 
 
 class TestFormatEtaMmss:
-    def test_format_without_ts(self) -> None:
-        assert format_eta_mmss(4) == "04:00"
-        assert format_eta_mmss(12) == "12:00"
-        assert format_eta_mmss(0) == "00:00"
-        assert format_eta_mmss(None) is None
+    def test_format_with_eta_raw_clock_time(self) -> None:
+        assert format_eta_mmss(4, eta_raw="14:34") == "14:34"
+        assert format_eta_mmss(2, eta_raw="(15:14) 2 dk") == "15:14"
 
-    def test_format_with_recent_last_seen(self) -> None:
-        now = datetime(2026, 10, 18, 14, 30, 30, tzinfo=timezone.utc)
-        # Last seen was 30 seconds ago
-        last_seen = "2026-10-18 14:30:00"
-        formatted = format_eta_mmss(4, last_seen, now=now)
-        # 4 minutes = 240 sec - 30 sec = 210 sec = 03:30
-        assert formatted == "03:30"
+    def test_format_computed_from_now(self) -> None:
+        # 11:30 UTC is 14:30 Istanbul time (UTC+3)
+        now = datetime(2026, 10, 18, 11, 30, 0, tzinfo=timezone.utc)
+        assert format_eta_mmss(5, now=now) == "14:35"
+        assert format_eta_mmss(0, now=now) == "14:30"
+        assert format_eta_mmss(None, now=now) is None
 
 
 class TestConvertSpeed:

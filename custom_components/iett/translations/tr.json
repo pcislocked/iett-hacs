@@ -13,7 +13,7 @@
       },
       "stop": {
         "title": "Durak Arama",
-        "description": "Takip etmek istediğiniz durağın 6 haneli kodunu (örn. 220602) veya adını (örn. Beşiktaş Meydan, Ahmet Mithat Efendi) girin.",
+        "description": "Takip etmek istediğiniz durağın 6 haneli kodunu (örn. 301341) veya adını (örn. Beşiktaş Meydan, Taksim) girin.",
         "data": {
           "stop_query": "Durak Kodu veya Adı"
         },
@@ -169,8 +169,8 @@
       "options": {
         "hatno": "Hat No",
         "plaka": "Plaka",
-        "eta": "ETA (Kalan Dakika)",
-        "eta_mmss": "Geleceği dk:sn ETA",
+        "eta": "Kalan Süre — Bağıl ETA (Dakika, örn. 4 dk)",
+        "eta_mmss": "Tahmini Varış Saati — Mutlak Saat (SS:DD, örn. 14:35)",
         "coords": "Koordinatlar (Enlem, Boylam Metni)",
         "coords_tracker": "Koordinatları Harita Takipçisi (device_tracker) Yap",
         "dist_stop": "Durağa Mesafesi (metre)",

@@ -84,7 +84,7 @@ def test_stop_slot_tracker() -> None:
         }
     )
     entry = _mock_entry({})
-    device = DeviceInfo(identifiers={(DOMAIN, "stop_220602")})
+    device = DeviceInfo(identifiers={(DOMAIN, "stop_301341")})
     tracker = IettStopSlotTrackerEntity(coord, entry, device, slot=1)
 
     assert tracker.source_type == SourceType.GPS
@@ -120,7 +120,7 @@ async def test_async_setup_entry_stop_tracker(hass: MagicMock) -> None:
     entry = _mock_entry(
         {
             CONF_FEED_TYPE: FEED_STOP,
-            CONF_STOP_CODE: "220602",
+            CONF_STOP_CODE: "301341",
             CONF_STOP_NAME: "BEŞİKTAŞ",
             CONF_STOP_ATTRIBUTES: [ATTR_OPT_COORDS_TRACKER],
         }

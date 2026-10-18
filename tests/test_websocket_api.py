@@ -46,7 +46,7 @@ def mock_client() -> MagicMock:
     client = MagicMock()
     client.get_stop_metadata = AsyncMock(
         return_value=StopMetadata(
-            dcode="220602",
+            dcode="301341",
             name="BEŞİKTAŞ MEYDAN",
             latitude=41.0450,
             longitude=29.0020,
@@ -108,7 +108,7 @@ def mock_client() -> MagicMock:
         )
     )
     client.search_stops = AsyncMock(
-        return_value=[StopMetadata(dcode="220602", name="BEŞİKTAŞ MEYDAN")]
+        return_value=[StopMetadata(dcode="301341", name="BEŞİKTAŞ MEYDAN")]
     )
     client.search_routes = AsyncMock(
         return_value=[RouteSearchResult(hat_kodu="500T", name="TUZLA - CEVİZLİBAĞ")]
@@ -129,7 +129,7 @@ async def test_ws_get_stop_board_success(
     msg = {
         "id": 1,
         "type": "iett/get_stop_board",
-        "stop_code": "220602",
+        "stop_code": "301341",
         "route_filter": [],
         "max_items": 10,
     }
@@ -139,7 +139,7 @@ async def test_ws_get_stop_board_success(
     args, _ = mock_connection.send_result.call_args
     assert args[0] == 1
     result = args[1]
-    assert result["stop_code"] == "220602"
+    assert result["stop_code"] == "301341"
     assert result["stop_name"] == "BEŞİKTAŞ MEYDAN"
     assert len(result["arrivals"]) == 2
 
@@ -147,7 +147,8 @@ async def test_ws_get_stop_board_success(
     assert a1["route_code"] == "500T"
     assert a1["kapino"] == "C-1753"
     assert a1["eta_minutes"] == 4
-    assert a1["eta_mmss"] == "04:00"
+    assert a1["eta_mmss"] == "14:34"
+    assert a1["eta_time"] == "14:34"
     assert a1["distance_to_stop_m"] is not None
     assert a1["amenities"]["ac"] is True
 
@@ -160,7 +161,7 @@ async def test_ws_get_stop_board_filter(
     msg = {
         "id": 2,
         "type": "iett/get_stop_board",
-        "stop_code": "220602",
+        "stop_code": "301341",
         "route_filter": ["14M"],
         "max_items": 10,
     }
@@ -181,7 +182,7 @@ async def test_ws_get_stop_board_api_error(
     msg = {
         "id": 3,
         "type": "iett/get_stop_board",
-        "stop_code": "220602",
+        "stop_code": "301341",
     }
     await _call_ws(ws_get_stop_board, hass, mock_connection, msg)
 
@@ -278,7 +279,7 @@ async def test_ws_search_stop(
     mock_connection.send_result.assert_called_once()
     _, result = mock_connection.send_result.call_args[0]
     assert len(result["results"]) == 1
-    assert result["results"][0]["code"] == "220602"
+    assert result["results"][0]["code"] == "301341"
 
 
 async def test_ws_search_route(

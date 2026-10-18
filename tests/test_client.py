@@ -142,7 +142,7 @@ class TestStopArrivals:
             m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
             m.post(NTC_SERVICE_RE, payload=NTC_STOP_ARRIVALS_JSON)
 
-            arrivals = await client.get_stop_arrivals("220602")
+            arrivals = await client.get_stop_arrivals("301341")
 
         assert len(arrivals) == 2
         first = arrivals[0]
@@ -164,7 +164,7 @@ class TestStopArrivals:
             m.post(NTC_SERVICE_RE, payload=[])  # Empty NTC
             m.get(REST_STATION_INFO_RE, body=HTML_STATION_DETAIL)
 
-            arrivals = await client.get_stop_arrivals("220602")
+            arrivals = await client.get_stop_arrivals("301341")
 
         assert arrivals == []
 
@@ -177,10 +177,10 @@ class TestStopMetadataAndRoutes:
             m.post(SOAP_STOP_RE, body=SOAP_STOP_DETAIL_XML, headers={"Content-Type": "text/xml"})
             m.get(REST_STATION_DETAIL_RE, body=HTML_STATION_DETAIL)
 
-            meta = await client.get_stop_metadata("220602")
+            meta = await client.get_stop_metadata("301341")
 
         assert isinstance(meta, StopMetadata)
-        assert meta.dcode == "220602"
+        assert meta.dcode == "301341"
         assert meta.name == "BEŞİKTAŞ MEYDAN"
         assert meta.district == "Beşiktaş"
         assert meta.smart_stop is True
@@ -191,7 +191,7 @@ class TestStopMetadataAndRoutes:
     async def test_get_routes_at_stop(self, client: IettClient) -> None:
         with aioresponses() as m:
             m.get(REST_ROUTE_STATION_RE, body=HTML_ROUTE_STATION)
-            routes = await client.get_routes_at_stop("220602")
+            routes = await client.get_routes_at_stop("301341")
 
         assert routes == ["14M", "29C", "500T"]
 

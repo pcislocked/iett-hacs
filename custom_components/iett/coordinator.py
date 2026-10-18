@@ -185,12 +185,14 @@ class IettEntryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if arr.amenities.accessible:
                 amenities_parts.append("Engelli")
 
+            arrival_time = format_eta_mmss(arr.eta_minutes, arr.last_seen_ts, eta_raw=arr.eta_raw)
             processed.append(
                 {
                     ATTR_OPT_HATNO: arr.route_code,
                     ATTR_OPT_PLAKA: arr.plate,
                     ATTR_OPT_ETA: arr.eta_minutes,
-                    ATTR_OPT_ETA_MMSS: format_eta_mmss(arr.eta_minutes, arr.last_seen_ts),
+                    ATTR_OPT_ETA_MMSS: arrival_time,
+                    "eta_time": arrival_time,
                     "eta_raw": arr.eta_raw,
                     "destination": arr.destination,
                     "kapino": arr.kapino,

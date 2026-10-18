@@ -38,8 +38,9 @@ class IettCard extends HTMLElement {
     return {
       type: "custom:iett-card",
       mode: "stop",
-      stop_code: "220602",
+      stop_code: "301341",
       theme: "led",
+      time_format: "relative",
       refresh_interval: 20,
       max_items: 6,
     };
@@ -60,6 +61,7 @@ class IettCard extends HTMLElement {
     this._config = {
       mode,
       theme: "led",
+      time_format: "relative",
       refresh_interval: 20,
       max_items: 8,
       ...config,
@@ -137,6 +139,7 @@ class IettCard extends HTMLElement {
           route_code: v.hatno || v.route_code || "",
           destination: v.destination || "",
           eta_minutes: v.eta ?? v.eta_minutes ?? null,
+          eta_time: v.eta_time || v.eta_mmss || null,
           eta_mmss: v.eta_mmss || null,
           eta_raw: v.eta_raw || "",
           kapino: v.kapino || null,
@@ -410,13 +413,33 @@ class IettCard extends HTMLElement {
     const arrivals = data?.arrivals || [];
 
     let rowsHtml = "";
+    const timeFormat = this._config.time_format || "relative";
     if (arrivals.length === 0) {
       rowsHtml = `<div class="empty-state">Yaklaşan araç bulunmuyor</div>`;
     } else {
       rowsHtml = arrivals
         .map((arr) => {
           const isPulse = arr.eta_minutes !== null && arr.eta_minutes <= 3;
-          const etaText = arr.eta_mmss || (arr.eta_minutes !== null ? `${arr.eta_minutes} dk` : arr.eta_raw || "--");
+          let relText = null;
+          if (arr.eta_minutes !== null && arr.eta_minutes !== undefined) {
+            if (arr.eta_minutes <= 0) {
+              relText = "Yaklaşıyor";
+            } else {
+              relText = `${arr.eta_minutes} dk`;
+            }
+          }
+          const absText = arr.eta_time || arr.eta_mmss || null;
+          let etaText;
+          if (timeFormat === "absolute") {
+            etaText = absText || relText || arr.eta_raw || "--";
+          } else if (timeFormat === "both") {
+            etaText =
+              relText && absText
+                ? `${relText} • ${absText}`
+                : relText || absText || arr.eta_raw || "--";
+          } else {
+            etaText = relText || absText || arr.eta_raw || "--";
+          }
           const distText = arr.distance_to_stop_m ? `${arr.distance_to_stop_m}m` : "";
           const kapiPlate = [arr.kapino, arr.plate].filter(Boolean).join(" • ");
 
@@ -426,6 +449,8 @@ class IettCard extends HTMLElement {
           if (am.wifi) amIcons.push("📶");
           if (am.usb) amIcons.push("🔌");
           if (am.accessible) amIcons.push("♿");
+
+          const pillTitle = absText ? `Tahmini Varış Saati: ${escapeHtml(absText)}` : "";
 
           return `
             <div class="arrival-row">
@@ -441,7 +466,7 @@ class IettCard extends HTMLElement {
                 </div>
               </div>
               <div class="arrival-right">
-                <span class="eta-pill ${isPulse ? "eta-pulsing" : ""}">${escapeHtml(etaText)}</span>
+                <span class="eta-pill ${isPulse ? "eta-pulsing" : ""}" ${pillTitle ? `title="${pillTitle}"` : ""}>${escapeHtml(etaText)}</span>
               </div>
             </div>
           `;
@@ -578,7 +603,7 @@ class IettCardEditor extends HTMLElement {
       </div>
       <div class="form-row">
         <label>Durak Kodu (stop_code)</label>
-        <input type="text" id="stop_code" value="${escapeHtml(this._config.stop_code || "")}" placeholder="Örn: 220602" />
+        <input type="text" id="stop_code" value="${escapeHtml(this._config.stop_code || "")}" placeholder="Örn: 301341" />
       </div>
       <div class="form-row">
         <label>Hat Kodu (route_code)</label>
@@ -587,6 +612,14 @@ class IettCardEditor extends HTMLElement {
       <div class="form-row">
         <label>Kapı No (kapino)</label>
         <input type="text" id="kapino" value="${escapeHtml(this._config.kapino || "")}" placeholder="Örn: C-1753" />
+      </div>
+      <div class="form-row">
+        <label>Zaman Gösterimi (time_format)</label>
+        <select id="time_format">
+          <option value="relative" ${!this._config.time_format || this._config.time_format === "relative" ? "selected" : ""}>Kalan Süre — Bağıl (Örn: 4 dk)</option>
+          <option value="absolute" ${this._config.time_format === "absolute" ? "selected" : ""}>Varış Saati — Mutlak (Örn: 14:35)</option>
+          <option value="both" ${this._config.time_format === "both" ? "selected" : ""}>Her İkisi (Örn: 4 dk (14:35))</option>
+        </select>
       </div>
       <div class="form-row">
         <label>Tema</label>

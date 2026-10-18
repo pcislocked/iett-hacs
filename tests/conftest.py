@@ -64,7 +64,7 @@ SOAP_ROUTE_FLEET_XML: str = """<?xml version="1.0" encoding="utf-8"?>
           "hatad": "TUZLA - CEVİZLİBAĞ",
           "yon": "G",
           "guzergahkodu": "500T_G_D0",
-          "yakinDurakKodu": "220602"
+          "yakinDurakKodu": "301341"
         }
       ]</GetHatOtoKonum_jsonResult>
     </GetHatOtoKonum_jsonResponse>

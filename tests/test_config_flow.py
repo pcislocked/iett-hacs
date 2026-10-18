@@ -36,7 +36,7 @@ def mock_client() -> MagicMock:
     client = MagicMock()
     client.get_stop_metadata = AsyncMock(
         return_value=StopMetadata(
-            dcode="220602",
+            dcode="301341",
             name="BEŞİKTAŞ MEYDAN",
             latitude=41.0450,
             longitude=29.0020,
@@ -46,8 +46,8 @@ def mock_client() -> MagicMock:
     client.get_routes_at_stop = AsyncMock(return_value=["500T", "14M"])
     client.search_stops = AsyncMock(
         return_value=[
-            StopMetadata(dcode="220602", name="BEŞİKTAŞ MEYDAN"),
-            StopMetadata(dcode="220603", name="BEŞİKTAŞ İSKELE"),
+            StopMetadata(dcode="301341", name="BEŞİKTAŞ MEYDAN"),
+            StopMetadata(dcode="301342", name="BEŞİKTAŞ İSKELE"),
         ]
     )
     client.search_routes = AsyncMock(
@@ -123,7 +123,7 @@ async def test_stop_flow_exact_6_digit_code(hass: MagicMock, mock_client: MagicM
     assert result["step_id"] == "stop"
 
     # Enter exact 6-digit code
-    result2 = await flow.async_step_stop({"stop_query": "220602"})
+    result2 = await flow.async_step_stop({"stop_query": "301341"})
     assert result2["type"] == data_entry_flow.FlowResultType.FORM
     assert result2["step_id"] == "stop_config"
 
@@ -138,7 +138,7 @@ async def test_stop_flow_exact_6_digit_code(hass: MagicMock, mock_client: MagicM
     )
     assert result3["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result3["data"][CONF_FEED_TYPE] == FEED_STOP
-    assert result3["data"][CONF_STOP_CODE] == "220602"
+    assert result3["data"][CONF_STOP_CODE] == "301341"
     assert result3["data"][CONF_STOP_NAME] == "BEŞİKTAŞ MEYDAN"
 
 
@@ -149,7 +149,7 @@ async def test_stop_flow_search_and_select(hass: MagicMock, mock_client: MagicMo
     assert result["type"] == data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "stop_select"
 
-    result2 = await flow.async_step_stop_select({"selected_stop": "220602"})
+    result2 = await flow.async_step_stop_select({"selected_stop": "301341"})
     assert result2["type"] == data_entry_flow.FlowResultType.FORM
     assert result2["step_id"] == "stop_config"
 
@@ -232,7 +232,7 @@ async def test_options_flow(hass: MagicMock) -> None:
     entry.entry_id = "test_entry_id"
     entry.data = {
         CONF_FEED_TYPE: FEED_STOP,
-        CONF_STOP_CODE: "220602",
+        CONF_STOP_CODE: "301341",
         CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
         CONF_STOP_ATTRIBUTES: ["hatno", "eta"],
     }

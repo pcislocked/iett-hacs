@@ -149,7 +149,7 @@ class TestStopCoordinator:
             "stop_entry_1",
             {
                 CONF_FEED_TYPE: FEED_STOP,
-                CONF_STOP_CODE: "220602",
+                CONF_STOP_CODE: "301341",
                 CONF_STOP_NAME: "BEŞİKTAŞ MEYDAN",
                 CONF_STOP_LAT: 41.0428,
                 CONF_STOP_LON: 29.0069,
@@ -164,7 +164,7 @@ class TestStopCoordinator:
         data = await coord._async_update_data()
 
         assert data["feed_type"] == FEED_STOP
-        assert data["stop_code"] == "220602"
+        assert data["stop_code"] == "301341"
         assert data["arriving_count"] == 2
         assert len(data["vehicles"]) == 2
 
@@ -172,7 +172,8 @@ class TestStopCoordinator:
         assert v1[ATTR_OPT_HATNO] == "500T"
         assert v1[ATTR_OPT_PLAKA] == "34 HO 1234"
         assert v1[ATTR_OPT_ETA] == 5
-        assert v1[ATTR_OPT_ETA_MMSS] == "05:00"
+        assert v1[ATTR_OPT_ETA_MMSS] == "14:35"
+        assert v1["eta_time"] == "14:35"
         assert v1[ATTR_OPT_SPEED] == 36
         assert v1[ATTR_OPT_DIST_STOP] is not None
         assert v1[ATTR_OPT_DIST_CUSTOM] is not None
@@ -191,7 +192,7 @@ class TestStopCoordinator:
             "stop_entry_filter",
             {
                 CONF_FEED_TYPE: FEED_STOP,
-                CONF_STOP_CODE: "220602",
+                CONF_STOP_CODE: "301341",
                 CONF_ROUTE_MODE: ROUTE_MODE_SELECTED,
                 CONF_SELECTED_ROUTES: ["500T"],
             },

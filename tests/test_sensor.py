@@ -107,7 +107,7 @@ class TestStopSensors:
         entry = _mock_entry(
             {
                 CONF_FEED_TYPE: FEED_STOP,
-                CONF_STOP_CODE: "220602",
+                CONF_STOP_CODE: "301341",
                 CONF_STOP_NAME: "BEŞİKTAŞ MEYDAN",
             }
         )
@@ -126,7 +126,7 @@ class TestStopSensors:
         entry = _mock_entry(
             {
                 CONF_FEED_TYPE: FEED_STOP,
-                CONF_STOP_CODE: "220602",
+                CONF_STOP_CODE: "301341",
                 CONF_STOP_ATTRIBUTES: ALL_STOP_ATTRIBUTE_OPTIONS,
             }
         )
@@ -186,7 +186,7 @@ class TestStopSensors:
         entry = _mock_entry(
             {
                 CONF_FEED_TYPE: FEED_STOP,
-                CONF_STOP_CODE: "220602",
+                CONF_STOP_CODE: "301341",
                 CONF_VEHICLE_LIMIT_MODE: "all",
                 CONF_STOP_ATTRIBUTES: [ATTR_OPT_HATNO, ATTR_OPT_ETA],
             }
@@ -321,7 +321,7 @@ class TestSensorAsyncSetupEntry:
         stop_coord = _mock_coord(
             {
                 "feed_type": FEED_STOP,
-                "stop_code": "220602",
+                "stop_code": "301341",
                 "stop_name": "BEŞİKTAŞ",
                 "arriving_count": 1,
                 "vehicles": [
@@ -344,7 +344,7 @@ class TestSensorAsyncSetupEntry:
         entry_stop = _mock_entry(
             {
                 CONF_FEED_TYPE: FEED_STOP,
-                CONF_STOP_CODE: "220602",
+                CONF_STOP_CODE: "301341",
                 CONF_STOP_NAME: "BEŞİKTAŞ",
                 CONF_VEHICLE_LIMIT_N: 1,
                 CONF_STOP_ATTRIBUTES: ALL_STOP_ATTRIBUTE_OPTIONS,

@@ -135,49 +135,56 @@ def haversine_meters(
     return round(r * c)
 
 
+_HHMM_RE = re.compile(r"\b([01]\d|2[0-3]):([0-5]\d)\b")
+
+
+def format_arrival_time(
+    eta_minutes: int | None,
+    eta_raw: str | None = None,
+    now: datetime | None = None,
+) -> str | None:
+    """Format estimated arrival as absolute 24-hour clock time (HH:MM) in Istanbul time.
+
+    Extracts HH:MM directly from upstream ``eta_raw`` (``saat``) if present,
+    otherwise calculates ``now + eta_minutes`` in ``ISTANBUL_TZ`` (UTC+3).
+    """
+    if eta_raw:
+        match = _HHMM_RE.search(str(eta_raw))
+        if match:
+            return f"{match.group(1)}:{match.group(2)}"
+
+    if eta_minutes is None:
+        return None
+
+    try:
+        mins = max(0, int(eta_minutes))
+    except (ValueError, TypeError):
+        return None
+
+    if now is None:
+        base_now = datetime.now(ISTANBUL_TZ)
+    elif now.tzinfo is None:
+        base_now = now.replace(tzinfo=ISTANBUL_TZ)
+    else:
+        base_now = now.astimezone(ISTANBUL_TZ)
+
+    arrival_dt = base_now + timedelta(minutes=mins)
+    return arrival_dt.strftime("%H:%M")
+
+
 def format_eta_mmss(
     eta_minutes: int | None,
     last_seen_ts: str | None = None,
     now: datetime | None = None,
+    eta_raw: str | None = None,
 ) -> str | None:
-    """Format ETA in MM:SS string, adjusting for seconds elapsed since last_seen_ts."""
-    if eta_minutes is None:
-        return None
+    """Return estimated arrival clock time (HH:MM) in Istanbul time.
 
-    total_seconds = max(0, int(eta_minutes) * 60)
-
-    if last_seen_ts:
-        if now is None:
-            now = datetime.now(ISTANBUL_TZ)
-        elif now.tzinfo is None:
-            now = now.replace(tzinfo=ISTANBUL_TZ)
-        parsed_dt: datetime | None = None
-        clean_ts = str(last_seen_ts).strip()
-
-        # Try parsing ISO or Istanbul local timestamp formats
-        try:
-            if "T" in clean_ts:
-                parsed_dt = datetime.fromisoformat(clean_ts)
-                if parsed_dt.tzinfo is None:
-                    parsed_dt = parsed_dt.replace(tzinfo=now.tzinfo or ISTANBUL_TZ)
-            elif len(clean_ts) == 8 and clean_ts.count(":") == 2:  # HH:MM:SS
-                h, m, s = map(int, clean_ts.split(":"))
-                parsed_dt = now.replace(hour=h, minute=m, second=s, microsecond=0)
-            elif len(clean_ts) >= 19 and " " in clean_ts:  # YYYY-MM-DD HH:MM:SS
-                parsed_dt = datetime.strptime(clean_ts[:19], "%Y-%m-%d %H:%M:%S").replace(
-                    tzinfo=now.tzinfo or ISTANBUL_TZ
-                )
-        except Exception:  # noqa: BLE001
-            parsed_dt = None
-
-        if parsed_dt:
-            # If parsed timestamp is recent (within 0-120 seconds), discount elapsed seconds
-            diff_sec = (now - parsed_dt).total_seconds()
-            if 0 < diff_sec < 120:
-                total_seconds = max(0, total_seconds - int(diff_sec))
-
-    mm, ss = divmod(total_seconds, 60)
-    return f"{mm:02d}:{ss:02d}"
+    Note: Kept under the ``format_eta_mmss`` symbol for backward compatibility with
+    existing config entries; İETT only provides minute-level ETA precision, so this
+    returns the absolute arrival time ``HH:MM`` rather than a synthetic ``MM:SS``.
+    """
+    return format_arrival_time(eta_minutes, eta_raw=eta_raw, now=now)
 
 
 def convert_speed(speed_kmh: float | None, unit: str = "kmh") -> int | float | None:
