@@ -252,3 +252,73 @@ async def test_concurrent_setup_entries_does_not_duplicate_static_route(hass: Ma
         assert res1 is True
         assert res2 is True
         assert register_calls == 1
+
+
+async def test_frontend_version_has_manifest_and_hash() -> None:
+    from custom_components.iett.const import FRONTEND_VERSION
+
+    assert FRONTEND_VERSION.startswith("2.1.0.")
+    parts = FRONTEND_VERSION.split(".")
+    assert len(parts) >= 4
+    assert len(parts[3]) == 8
+
+
+async def test_lovelace_resource_registration_creates_item(hass: MagicMock) -> None:
+    from custom_components.iett import _async_register_lovelace_resource
+    from custom_components.iett.const import FRONTEND_STATIC_URL, FRONTEND_VERSION
+
+    mock_resources = MagicMock()
+    mock_resources.loaded = True
+    mock_resources.async_items = MagicMock(return_value=[])
+    mock_resources.async_create_item = AsyncMock()
+
+    hass.data["lovelace"] = {"resources": mock_resources}
+    expected_url = f"{FRONTEND_STATIC_URL}?v={FRONTEND_VERSION}"
+
+    success = await _async_register_lovelace_resource(hass, expected_url)
+    assert success is True
+    mock_resources.async_create_item.assert_called_once_with(
+        {"res_type": "module", "url": expected_url}
+    )
+
+
+async def test_lovelace_resource_registration_updates_outdated_item(hass: MagicMock) -> None:
+    from custom_components.iett import _async_register_lovelace_resource
+    from custom_components.iett.const import FRONTEND_STATIC_URL, FRONTEND_VERSION
+
+    mock_resources = MagicMock()
+    mock_resources.loaded = True
+    mock_resources.async_items = MagicMock(
+        return_value=[{"id": "res_123", "url": f"{FRONTEND_STATIC_URL}?v=2.0.2", "type": "module"}]
+    )
+    mock_resources.async_update_item = AsyncMock()
+
+    hass.data["lovelace"] = {"resources": mock_resources}
+    expected_url = f"{FRONTEND_STATIC_URL}?v={FRONTEND_VERSION}"
+
+    success = await _async_register_lovelace_resource(hass, expected_url)
+    assert success is True
+    mock_resources.async_update_item.assert_called_once_with(
+        "res_123", {"res_type": "module", "url": expected_url}
+    )
+
+
+async def test_lovelace_resource_already_current_no_update(hass: MagicMock) -> None:
+    from custom_components.iett import _async_register_lovelace_resource
+    from custom_components.iett.const import FRONTEND_STATIC_URL, FRONTEND_VERSION
+
+    expected_url = f"{FRONTEND_STATIC_URL}?v={FRONTEND_VERSION}"
+    mock_resources = MagicMock()
+    mock_resources.loaded = True
+    mock_resources.async_items = MagicMock(
+        return_value=[{"id": "res_123", "url": expected_url, "type": "module"}]
+    )
+    mock_resources.async_update_item = AsyncMock()
+    mock_resources.async_create_item = AsyncMock()
+
+    hass.data["lovelace"] = {"resources": mock_resources}
+
+    success = await _async_register_lovelace_resource(hass, expected_url)
+    assert success is True
+    mock_resources.async_create_item.assert_not_called()
+    mock_resources.async_update_item.assert_not_called()
