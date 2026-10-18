@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from pathlib import Path
 from typing import Final
 
 DOMAIN: Final = "iett"
@@ -126,7 +129,31 @@ FLEET_RAM_CACHE_TTL: Final = 60
 SCHEDULE_RAM_CACHE_TTL: Final = 3600
 ANNOUNCEMENT_RAM_CACHE_TTL: Final = 600
 
+
 # Services & Frontend
+def _get_frontend_version() -> str:
+    """Calculate frontend version string from manifest and card JS hash."""
+    base_dir = Path(__file__).parent
+    version = "2.1.0"
+    try:
+        manifest_path = base_dir / "manifest.json"
+        if manifest_path.exists():
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            version = manifest_data.get("version", version)
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        js_path = base_dir / "frontend" / "iett-card.js"
+        if js_path.exists():
+            digest = hashlib.md5(js_path.read_bytes()).hexdigest()[:8]
+            return f"{version}.{digest}"
+    except Exception:  # noqa: BLE001
+        pass
+
+    return version
+
+
 SERVICE_REFRESH_FLEET: Final = "refresh_fleet"
 FRONTEND_STATIC_URL: Final = "/iett_static/iett-card.js"
-FRONTEND_VERSION: Final = "2.0.2"
+FRONTEND_VERSION: Final = _get_frontend_version()

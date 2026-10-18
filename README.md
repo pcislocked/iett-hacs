@@ -130,6 +130,16 @@ theme: modern
 refresh_interval: 15
 ```
 
+### 📱 Mobile (Home Assistant Companion App) & Troubleshooting
+
+The card resource is registered dynamically into Home Assistant's Lovelace Resources with content-hashed cache busting. If your mobile device shows:
+```
+Configuration error: Custom element doesn't exist: iett-card.
+```
+1. Ensure the İETT integration is added and loaded in Home Assistant.
+2. In the Companion App, open **Settings** → **Companion App** → **Debugging** (or **Troubleshooting**) → tap **Reset frontend cache**.
+3. Force-close and reopen the app.
+
 ---
 
 ## Automation Recipes

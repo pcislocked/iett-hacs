@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from pathlib import Path
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -56,6 +58,131 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+async def _async_register_lovelace_resource(hass: HomeAssistant, versioned_url: str) -> bool:
+    """Register or update the Lovelace storage resource for the card."""
+    try:
+        lovelace_data = hass.data.get("lovelace")
+        resources = getattr(lovelace_data, "resources", None)
+        if resources is None and isinstance(lovelace_data, dict):
+            resources = lovelace_data.get("resources")
+
+        if resources is not None and hasattr(resources, "async_items"):
+            if (
+                hasattr(resources, "loaded")
+                and not resources.loaded
+                and hasattr(resources, "async_load")
+            ):
+                load_res = resources.async_load()
+                if inspect.isawaitable(load_res):
+                    await load_res
+
+            items = resources.async_items()
+            if inspect.isawaitable(items):
+                items = await items
+
+            existing = [
+                item
+                for item in (items or [])
+                if isinstance(item, dict) and item.get("url", "").startswith(FRONTEND_STATIC_URL)
+            ]
+            if not existing:
+                if hasattr(resources, "async_create_item"):
+                    create_res = resources.async_create_item(
+                        {"res_type": "module", "url": versioned_url}
+                    )
+                    if inspect.isawaitable(create_res):
+                        await create_res
+                    _LOGGER.info("Registered İETT card Lovelace resource: %s", versioned_url)
+            else:
+                for item in existing:
+                    if item.get("url") != versioned_url and hasattr(resources, "async_update_item"):
+                        update_res = resources.async_update_item(
+                            item["id"], {"res_type": "module", "url": versioned_url}
+                        )
+                        if inspect.isawaitable(update_res):
+                            await update_res
+                        _LOGGER.info(
+                            "Updated İETT card Lovelace resource from %s to %s",
+                            item.get("url"),
+                            versioned_url,
+                        )
+            return True
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.debug("Could not register Lovelace storage resource: %s", err)
+    return False
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Register the bundled iett-card.js static path and Lovelace resource."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    frontend_lock: asyncio.Lock = domain_data.setdefault("_frontend_lock", asyncio.Lock())
+
+    async with frontend_lock:
+        js_file = Path(__file__).parent / "frontend" / "iett-card.js"
+        if not js_file.exists():
+            return
+
+        versioned_url = f"{FRONTEND_STATIC_URL}?v={FRONTEND_VERSION}"
+
+        # 1. Register HTTP static path (only once)
+        if not domain_data.get("static_path_registered"):
+            if hasattr(hass, "http") and hass.http is not None:
+                try:
+                    from homeassistant.components.http import StaticPathConfig
+
+                    static_res = hass.http.async_register_static_paths(
+                        [StaticPathConfig(FRONTEND_STATIC_URL, str(js_file), cache_headers=False)]
+                    )
+                    if inspect.isawaitable(static_res):
+                        await static_res
+                    domain_data["static_path_registered"] = True
+                except (ImportError, AttributeError):
+                    if hasattr(hass.http, "register_static_path"):
+                        try:
+                            hass.http.register_static_path(
+                                FRONTEND_STATIC_URL, str(js_file), cache_headers=False
+                            )
+                            domain_data["static_path_registered"] = True
+                        except RuntimeError:
+                            domain_data["static_path_registered"] = True
+                except RuntimeError:
+                    # Route "/iett_static/iett-card.js" already registered on HTTP router
+                    domain_data["static_path_registered"] = True
+                    _LOGGER.debug("Static path %s already registered", FRONTEND_STATIC_URL)
+
+                try:
+                    from homeassistant.components.frontend import add_extra_js_url
+
+                    try:
+                        add_extra_js_url(hass, versioned_url, es5=False)
+                        add_extra_js_url(hass, versioned_url, es5=True)
+                    except TypeError:
+                        add_extra_js_url(hass, versioned_url)
+                except Exception:  # noqa: BLE001
+                    pass
+
+        # 2. Register Lovelace storage resource
+        if not domain_data.get("lovelace_resource_registered"):
+            registered = await _async_register_lovelace_resource(hass, versioned_url)
+            if registered:
+                domain_data["lovelace_resource_registered"] = True
+            elif hasattr(hass, "bus"):
+                # If Lovelace was not initialized yet, retry once when Home Assistant has started
+                if not domain_data.get("lovelace_start_listener"):
+                    domain_data["lovelace_start_listener"] = True
+
+                    async def _on_ha_start(_event: Any) -> None:
+                        if not domain_data.get("lovelace_resource_registered"):
+                            if await _async_register_lovelace_resource(hass, versioned_url):
+                                domain_data["lovelace_resource_registered"] = True
+
+                    from homeassistant.const import EVENT_HOMEASSISTANT_START
+
+                    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, _on_ha_start)
+
+        domain_data["frontend_registered"] = True
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the İETT component integration level services."""
 
@@ -67,45 +194,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.info("İETT fleet cache refreshed via service call")
 
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_FLEET, handle_refresh_fleet)
+
+    # Register frontend static path and Lovelace resources at integration setup time
+    await _async_register_frontend(hass)
     return True
-
-
-async def _async_register_frontend(hass: HomeAssistant) -> None:
-    """Register the bundled iett-card.js static path and Lovelace resource."""
-    domain_data = hass.data.setdefault(DOMAIN, {})
-    if domain_data.get("frontend_registered"):
-        return
-    domain_data["frontend_registered"] = True
-
-    js_file = Path(__file__).parent / "frontend" / "iett-card.js"
-    if not js_file.exists():
-        return
-
-    if hasattr(hass, "http") and hass.http is not None:
-        try:
-            from homeassistant.components.http import StaticPathConfig
-
-            await hass.http.async_register_static_paths(
-                [StaticPathConfig(FRONTEND_STATIC_URL, str(js_file), cache_headers=False)]
-            )
-        except (ImportError, AttributeError):
-            if hasattr(hass.http, "register_static_path"):
-                try:
-                    hass.http.register_static_path(
-                        FRONTEND_STATIC_URL, str(js_file), cache_headers=False
-                    )
-                except RuntimeError:
-                    pass
-        except RuntimeError:
-            # Route "/iett_static/iett-card.js" already registered on HTTP router
-            _LOGGER.debug("Static path %s already registered", FRONTEND_STATIC_URL)
-
-        try:
-            from homeassistant.components.frontend import add_extra_js_url
-
-            add_extra_js_url(hass, f"{FRONTEND_STATIC_URL}?v={FRONTEND_VERSION}")
-        except Exception:  # noqa: BLE001
-            pass
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
