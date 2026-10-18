@@ -42,6 +42,7 @@ from .models import (
     RouteSearchResult,
     ScheduledDeparture,
     StopMetadata,
+    _parse_amenity,
 )
 from .normalizers import (
     normalize_kapino,
@@ -59,6 +60,55 @@ _SOAP_ENV = (
     ' xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
     "<soap:Body>{body}</soap:Body></soap:Envelope>"
 )
+
+
+def _parse_fleet_records(xml_text: str) -> dict[str, BusPosition]:
+    """Parse massive SOAP XML envelope containing fleet positions in a worker thread.
+
+    Offloaded via asyncio.to_thread to prevent event loop starvation when
+    decoding 2-3 MB XML and 1.5 MB embedded JSON with ~7,000 buses.
+    """
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return {}
+    el = root.find(f".//{{{_TEMPURI}}}GetFiloAracKonum_jsonResult")
+    if el is None or not el.text:
+        return {}
+    try:
+        data = json.loads(el.text)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, list):
+        return {}
+
+    result: dict[str, BusPosition] = {}
+    for r in data:
+        kapi = normalize_kapino(r.get("KapiNo"))
+        if not kapi:
+            continue
+        speed_raw = next(
+            (r[k] for k in ("Hiz", "H\u0131z", "HIZ", "hiz", "h\u0131z") if k in r),
+            None,
+        )
+        speed = int(float(speed_raw)) if speed_raw is not None else None
+        try:
+            lat = float(r.get("Enlem", 0.0))
+            lon = float(r.get("Boylam", 0.0))
+        except (ValueError, TypeError):
+            lat, lon = 0.0, 0.0
+
+        result[kapi] = BusPosition(
+            kapino=kapi,
+            plate=normalize_plate(r.get("Plaka")),
+            latitude=lat if lat != 0.0 else None,
+            longitude=lon if lon != 0.0 else None,
+            speed=speed,
+            operator=r.get("Operator"),
+            last_seen=r.get("Saat", ""),
+            route_code=(r.get("HatKodu") or r.get("HATKODU") or r.get("hatkodu") or None),
+        )
+    return result
 
 
 class IettApiError(Exception):
@@ -158,13 +208,28 @@ class IettClient:
     # NTCAPI OAuth2 and Service Calls
     # ------------------------------------------------------------------
 
-    async def _ensure_token(self) -> str:
-        """Fetch and cache NTCAPI Bearer token, refreshing before expiry."""
-        if self._token and time.monotonic() < self._token_expiry - 60:
+    async def _ensure_token(self, failed_token: str | None = None) -> str:
+        """Fetch and cache NTCAPI Bearer token, refreshing before expiry or on 401.
+
+        If failed_token is provided and a newer token has already been acquired
+        by a concurrent request while waiting for the lock, the newer token is
+        returned immediately to prevent thundering-herd re-authentication.
+        """
+        now = time.monotonic()
+        if (
+            failed_token is None
+            and self._token
+            and now < self._token_expiry - 60
+        ):
             return self._token
 
         async with self._token_lock:
-            if self._token and time.monotonic() < self._token_expiry - 60:
+            # Re-check under lock; if another task refreshed token since failed_token was seen, reuse it
+            if (
+                self._token
+                and now < self._token_expiry - 60
+                and (failed_token is None or self._token != failed_token)
+            ):
                 return self._token
 
             payload = {
@@ -212,9 +277,8 @@ class IettClient:
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
                 if resp.status == 401:
-                    # Token expired or invalidated — clear and retry once
-                    self._token = None
-                    token = await self._ensure_token()
+                    # Token expired or invalidated upstream — refresh under lock and retry once
+                    token = await self._ensure_token(failed_token=token)
                     headers["Authorization"] = f"Bearer {token}"
                     async with self._session.post(
                         NTC_SERVICE_URL,
@@ -288,35 +352,7 @@ class IettClient:
                     return len(self._fleet_by_kapino)
                 raise IettApiError(f"Fleet fetch failed: {exc}") from exc
 
-            records = self._extract_soap_json(xml, "GetFiloAracKonum_jsonResult")
-            new_dict: dict[str, BusPosition] = {}
-
-            for r in records:
-                kapi = normalize_kapino(r.get("KapiNo"))
-                if not kapi:
-                    continue
-                speed_raw = next(
-                    (r[k] for k in ("Hiz", "H\u0131z", "HIZ", "hiz", "h\u0131z") if k in r),
-                    None,
-                )
-                speed = int(float(speed_raw)) if speed_raw is not None else None
-                try:
-                    lat = float(r.get("Enlem", 0.0))
-                    lon = float(r.get("Boylam", 0.0))
-                except (ValueError, TypeError):
-                    lat, lon = 0.0, 0.0
-
-                new_dict[kapi] = BusPosition(
-                    kapino=kapi,
-                    plate=normalize_plate(r.get("Plaka")),
-                    latitude=lat if lat != 0.0 else None,
-                    longitude=lon if lon != 0.0 else None,
-                    speed=speed,
-                    operator=r.get("Operator"),
-                    last_seen=r.get("Saat", ""),
-                    route_code=(r.get("HatKodu") or r.get("HATKODU") or r.get("hatkodu") or None),
-                )
-
+            new_dict = await asyncio.to_thread(_parse_fleet_records, xml)
             self._fleet_by_kapino = new_dict
             self._fleet_updated_mono = time.monotonic()
             return len(self._fleet_by_kapino)
@@ -573,7 +609,9 @@ class IettClient:
                     route_code = str(item.get("hatkodu") or "").strip().upper()
                     if not route_code:
                         continue
-                    destination = str(item.get("hattip") or item.get("hatadi") or "").strip()
+                    destination = re.sub(
+                        r"\s+", " ", str(item.get("hattip") or item.get("hatadi") or "").strip()
+                    )
                     try:
                         dakika = int(item.get("dakika")) if item.get("dakika") is not None else None
                     except (ValueError, TypeError):
@@ -587,12 +625,10 @@ class IettClient:
                         hiz = None
 
                     amenities = Amenities(
-                        usb=bool(int(item["usb"])) if item.get("usb") is not None else None,
-                        wifi=bool(int(item["wifi"])) if item.get("wifi") is not None else None,
-                        ac=bool(int(item["klima"])) if item.get("klima") is not None else None,
-                        accessible=bool(int(item["engelli"]))
-                        if item.get("engelli") is not None
-                        else None,
+                        usb=_parse_amenity(item.get("usb")),
+                        wifi=_parse_amenity(item.get("wifi")),
+                        ac=_parse_amenity(item.get("klima")),
+                        accessible=_parse_amenity(item.get("engelli")),
                     )
                     arrivals.append(
                         Arrival(

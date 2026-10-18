@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from custom_components.iett import (
     async_migrate_entry,
     async_setup,
@@ -254,6 +256,26 @@ async def test_concurrent_setup_entries_does_not_duplicate_static_route(hass: Ma
         assert register_calls == 1
 
 
+async def test_setup_entry_root_first_refresh_failure_raises_not_ready(hass: MagicMock) -> None:
+    """Verify that root coordinator first refresh failure raises ConfigEntryNotReady and releases lock cleanly."""
+    from homeassistant.exceptions import ConfigEntryNotReady
+
+    entry = _mock_entry("test_root_entry_fail", {CONF_FEED_TYPE: FEED_ROOT})
+    with (
+        patch("custom_components.iett.async_get_clientsession", return_value=MagicMock()),
+        patch("custom_components.iett.IettClient"),
+        patch(
+            "custom_components.iett.IettRootCoordinator.async_config_entry_first_refresh",
+            side_effect=ConfigEntryNotReady("Network unreachable"),
+        ),
+        patch("custom_components.iett._async_register_frontend", new=AsyncMock()),
+    ):
+        with pytest.raises(ConfigEntryNotReady):
+            await async_setup_entry(hass, entry)
+
+        assert entry.entry_id not in hass.data.get(DOMAIN, {})
+
+
 async def test_frontend_version_has_manifest_and_hash() -> None:
     from custom_components.iett.const import FRONTEND_VERSION
 
@@ -322,3 +344,20 @@ async def test_lovelace_resource_already_current_no_update(hass: MagicMock) -> N
     assert success is True
     mock_resources.async_create_item.assert_not_called()
     mock_resources.async_update_item.assert_not_called()
+
+
+async def test_frontend_registration_when_ha_already_running(hass: MagicMock) -> None:
+    """Verify that when HA is already running, registration does not wait for EVENT_HOMEASSISTANT_START."""
+    from custom_components.iett import _async_register_frontend
+
+    hass.is_running = True
+    hass.bus = MagicMock()
+    hass.bus.async_listen_once = MagicMock()
+
+    with patch("custom_components.iett._async_register_lovelace_resource", AsyncMock(return_value=False)):
+        await _async_register_frontend(hass)
+
+    # EVENT_HOMEASSISTANT_START listener should NOT be attached because HA is already running
+    hass.bus.async_listen_once.assert_not_called()
+    # async_create_task should be called to retry asynchronously
+    assert hass.async_create_task.called

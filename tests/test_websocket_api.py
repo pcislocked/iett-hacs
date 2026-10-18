@@ -173,6 +173,38 @@ async def test_ws_get_stop_board_filter(
     assert result["arrivals"][0]["route_code"] == "14M"
 
 
+async def test_ws_get_stop_board_filter_case_insensitive_and_no_match(
+    hass: MagicMock, mock_connection: MagicMock, mock_client: MagicMock
+) -> None:
+    hass.data[DOMAIN] = {"client": mock_client}
+
+    # Case-insensitive matching e.g. "500t" -> "500T"
+    msg_case = {
+        "id": 3,
+        "type": "iett/get_stop_board",
+        "stop_code": "301341",
+        "route_filter": ["500t"],
+        "max_items": 10,
+    }
+    await _call_ws(ws_get_stop_board, hass, mock_connection, msg_case)
+    _, result = mock_connection.send_result.call_args[0]
+    assert len(result["arrivals"]) == 1
+    assert result["arrivals"][0]["route_code"] == "500T"
+
+    # Filter with no matching routes
+    mock_connection.send_result.reset_mock()
+    msg_none = {
+        "id": 4,
+        "type": "iett/get_stop_board",
+        "stop_code": "301341",
+        "route_filter": ["NONEXISTENT"],
+        "max_items": 10,
+    }
+    await _call_ws(ws_get_stop_board, hass, mock_connection, msg_none)
+    _, result_none = mock_connection.send_result.call_args[0]
+    assert len(result_none["arrivals"]) == 0
+
+
 async def test_ws_get_stop_board_api_error(
     hass: MagicMock, mock_connection: MagicMock, mock_client: MagicMock
 ) -> None:

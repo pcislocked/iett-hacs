@@ -213,6 +213,7 @@ async def session() -> AsyncGenerator[aiohttp.ClientSession, None]:
 @pytest.fixture()
 def hass() -> MagicMock:
     h = MagicMock()
+    h.is_running = False
     h.config = MagicMock()
     h.config.latitude = 41.0082
     h.config.longitude = 28.9784
@@ -222,4 +223,5 @@ def hass() -> MagicMock:
     h.config_entries.async_entry_for_domain_unique_id = MagicMock(return_value=None)
     h.config_entries.async_update_entry = MagicMock()
     h.config_entries.async_reload = AsyncMock()
+    h.async_create_task = MagicMock(side_effect=lambda coro: asyncio.create_task(coro))
     return h

@@ -93,6 +93,37 @@ def test_stop_slot_tracker() -> None:
     assert tracker.extra_state_attributes["kapino"] == "C-1753"
 
 
+def test_stop_slot_tracker_filters_attributes() -> None:
+    from custom_components.iett.const import ATTR_OPT_HATNO, CONF_STOP_ATTRIBUTES
+
+    coord = _mock_coord(
+        {
+            "vehicles": [
+                {
+                    "slot": 1,
+                    "kapino": "C-1753",
+                    "latitude": 41.0450,
+                    "longitude": 29.0020,
+                    "hatno": "500T",
+                    "plaka": "34 HO 1234",
+                    "speed": 40,
+                }
+            ]
+        }
+    )
+    # Only hatno is selected, plaka and speed are omitted
+    entry = _mock_entry({CONF_STOP_ATTRIBUTES: [ATTR_OPT_HATNO]})
+    device = DeviceInfo(identifiers={(DOMAIN, "stop_301341")})
+    tracker = IettStopSlotTrackerEntity(coord, entry, device, slot=1)
+
+    attrs = tracker.extra_state_attributes
+    assert attrs["slot"] == 1
+    assert attrs["kapino"] == "C-1753"
+    assert attrs["hatno"] == "500T"
+    assert "plaka" not in attrs
+    assert "speed" not in attrs
+
+
 async def test_async_setup_entry_vehicle_tracker(hass: MagicMock) -> None:
     from custom_components.iett.const import CONF_FEED_TYPE, CONF_KAPINO, FEED_VEHICLE
     from custom_components.iett.device_tracker import async_setup_entry

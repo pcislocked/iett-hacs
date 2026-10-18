@@ -621,7 +621,6 @@ class IettOptionsFlowHandler(config_entries.OptionsFlow):
             if CONF_VEHICLE_LIMIT_N in new_data:
                 new_data[CONF_VEHICLE_LIMIT_N] = int(new_data[CONF_VEHICLE_LIMIT_N])
             self.hass.config_entries.async_update_entry(self._config_entry, data=new_data)
-            await self.hass.config_entries.async_reload(self._config_entry.entry_id)
             return self.async_create_entry(title="", data={})
 
         data = self._config_entry.data

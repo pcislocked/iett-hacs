@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -252,7 +254,48 @@ async def test_options_flow(hass: MagicMock) -> None:
     )
     assert result2["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     hass.config_entries.async_update_entry.assert_called_once()
-    hass.config_entries.async_reload.assert_called_once_with("test_entry_id")
+    hass.config_entries.async_reload.assert_not_called()
+
+
+async def test_options_flow_update_listener_no_duplicate_reload(hass: MagicMock) -> None:
+    """Verify options flow delegates reload solely to update_listener without duplicate reload."""
+    from custom_components.iett import async_reload_entry
+
+    entry = MagicMock()
+    entry.entry_id = "test_entry_id_opt"
+    entry.data = {
+        CONF_FEED_TYPE: FEED_STOP,
+        CONF_STOP_CODE: "301341",
+        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+    }
+
+    # Simulate HA's async_update_entry triggering update_listener
+    reload_calls = 0
+
+    async def _mock_reload(entry_id: str) -> None:
+        nonlocal reload_calls
+        reload_calls += 1
+
+    hass.config_entries.async_reload = AsyncMock(side_effect=_mock_reload)
+
+    def _mock_update_entry(_entry: Any, data: dict[str, Any]) -> None:
+        _entry.data = data
+        # HA triggers registered update listeners
+        asyncio.create_task(async_reload_entry(hass, _entry))
+
+    hass.config_entries.async_update_entry = MagicMock(side_effect=_mock_update_entry)
+
+    options_flow = IettOptionsFlowHandler(entry)
+    options_flow.hass = hass
+
+    result = await options_flow.async_step_init(
+        user_input={CONF_SCAN_INTERVAL: 60}
+    )
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+
+    # Yield event loop to allow listener task to execute
+    await asyncio.sleep(0.01)
+    assert reload_calls == 1
 
 
 async def test_options_flow_route_and_vehicle(hass: MagicMock) -> None:
