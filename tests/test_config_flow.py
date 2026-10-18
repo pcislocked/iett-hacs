@@ -253,3 +253,29 @@ async def test_options_flow(hass: MagicMock) -> None:
     assert result2["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     hass.config_entries.async_update_entry.assert_called_once()
     hass.config_entries.async_reload.assert_called_once_with("test_entry_id")
+
+
+async def test_options_flow_route_and_vehicle(hass: MagicMock) -> None:
+    route_entry = MagicMock()
+    route_entry.entry_id = "route_entry_id"
+    route_entry.data = {
+        CONF_FEED_TYPE: FEED_ROUTE,
+        CONF_ROUTE_CODE: "500T",
+        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+    }
+    route_opt = IettOptionsFlowHandler(route_entry)
+    route_opt.hass = hass
+    res_route = await route_opt.async_step_init()
+    assert res_route["type"] == data_entry_flow.FlowResultType.FORM
+
+    veh_entry = MagicMock()
+    veh_entry.entry_id = "veh_entry_id"
+    veh_entry.data = {
+        CONF_FEED_TYPE: FEED_VEHICLE,
+        CONF_KAPINO: "C-1753",
+        CONF_SPEED_UNIT: SPEED_UNIT_KMH,
+    }
+    veh_opt = IettOptionsFlowHandler(veh_entry)
+    veh_opt.hass = hass
+    res_veh = await veh_opt.async_step_init()
+    assert res_veh["type"] == data_entry_flow.FlowResultType.FORM

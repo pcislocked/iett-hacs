@@ -57,6 +57,7 @@ from .const import (
 )
 from .models import ScheduledDeparture
 from .normalizers import (
+    ISTANBUL_TZ,
     convert_speed,
     format_eta_mmss,
     haversine_meters,
@@ -255,14 +256,23 @@ class IettEntryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not filtered_schedule and schedule:
             filtered_schedule = schedule
 
-        # Compute next departure for G and D
-        now_dt = datetime.now().astimezone()
+        # Compute next departure for G and D in Istanbul time (UTC+3)
+        now_dt = datetime.now(ISTANBUL_TZ)
         cur_min = now_dt.hour * 60 + now_dt.minute
+        weekday = now_dt.weekday()  # 0=Mon..4=Fri -> H, 5=Sat -> C, 6=Sun -> P
+        today_day_type = "P" if weekday == 6 else ("C" if weekday == 5 else "H")
+
+        day_filtered = [
+            s
+            for s in filtered_schedule
+            if not s.day_type or s.day_type.strip().upper().startswith(today_day_type)
+        ]
+        active_schedule = day_filtered if day_filtered else filtered_schedule
 
         def next_dep(direction: str) -> tuple[int | None, str | None]:
             deps_dir = [
                 s
-                for s in filtered_schedule
+                for s in active_schedule
                 if s.direction.upper() == direction.upper()
                 and s.departure_time
                 and ":" in s.departure_time

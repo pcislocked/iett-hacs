@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
+
+ISTANBUL_TZ = timezone(timedelta(hours=3))
 
 # Strict Kapı No: 1-2 letters + dash + 3-5 digits (e.g. C-1753, A-001, M-1042)
 _STRICT_KAPINO_RE = re.compile(r"^([A-Z]{1,2})-(\d{3,5})$")
@@ -146,22 +148,24 @@ def format_eta_mmss(
 
     if last_seen_ts:
         if now is None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(ISTANBUL_TZ)
+        elif now.tzinfo is None:
+            now = now.replace(tzinfo=ISTANBUL_TZ)
         parsed_dt: datetime | None = None
         clean_ts = str(last_seen_ts).strip()
 
-        # Try parsing ISO or timestamp formats
+        # Try parsing ISO or Istanbul local timestamp formats
         try:
             if "T" in clean_ts:
                 parsed_dt = datetime.fromisoformat(clean_ts)
                 if parsed_dt.tzinfo is None:
-                    parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+                    parsed_dt = parsed_dt.replace(tzinfo=now.tzinfo or ISTANBUL_TZ)
             elif len(clean_ts) == 8 and clean_ts.count(":") == 2:  # HH:MM:SS
                 h, m, s = map(int, clean_ts.split(":"))
                 parsed_dt = now.replace(hour=h, minute=m, second=s, microsecond=0)
             elif len(clean_ts) >= 19 and " " in clean_ts:  # YYYY-MM-DD HH:MM:SS
                 parsed_dt = datetime.strptime(clean_ts[:19], "%Y-%m-%d %H:%M:%S").replace(
-                    tzinfo=timezone.utc
+                    tzinfo=now.tzinfo or ISTANBUL_TZ
                 )
         except Exception:  # noqa: BLE001
             parsed_dt = None

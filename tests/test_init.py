@@ -74,8 +74,82 @@ async def test_migration_v1_to_v2_stop(hass: MagicMock) -> None:
     new_data = kwargs["data"]
     assert kwargs["version"] == 2
     assert CONF_BASE_URL not in new_data
+    assert "dcode" not in new_data
+    assert new_data["stop_code"] == "220602"
     assert new_data[CONF_ROUTE_MODE] == "all"
     assert CONF_STOP_ATTRIBUTES in new_data
+
+
+async def test_migration_v1_to_v2_route(hass: MagicMock) -> None:
+    old_data = {
+        CONF_FEED_TYPE: "route",
+        "hat_kodu": "500T",
+        CONF_BASE_URL: "http://old-iett-middle:8000",
+    }
+    entry = _mock_entry("mig_entry_3", old_data, version=1)
+
+    result = await async_migrate_entry(hass, entry)
+    assert result is True
+
+    hass.config_entries.async_update_entry.assert_called_once()
+    _, kwargs = hass.config_entries.async_update_entry.call_args
+    new_data = kwargs["data"]
+    assert kwargs["version"] == 2
+    assert "hat_kodu" not in new_data
+    assert new_data["route_code"] == "500T"
+
+
+async def test_diagnostics_redacts_gps_coordinates(hass: MagicMock) -> None:
+    from custom_components.iett.diagnostics import async_get_config_entry_diagnostics
+
+    entry = _mock_entry(
+        "diag_entry_1",
+        {
+            CONF_FEED_TYPE: FEED_STOP,
+            "stop_code": "220602",
+            "stop_lat": 41.0450,
+            "stop_lon": 29.0020,
+            "custom_lat": 41.0082,
+            "custom_lon": 28.9784,
+        },
+    )
+    entry.domain = DOMAIN
+    entry.title = "Durak 220602"
+    entry.options = {"custom_lat": 41.0082}
+
+    coord = MagicMock()
+    coord.data = {
+        "stop_code": "220602",
+        "vehicles": [
+            {
+                "kapino": "C-1753",
+                "latitude": 41.0450,
+                "longitude": 29.0020,
+                "coords": "41.045, 29.002",
+            }
+        ],
+    }
+    client = MagicMock()
+    client._fleet_by_kapino = {"C-1753": MagicMock()}
+    client._token = "secret_token"
+
+    hass.data[DOMAIN] = {
+        "client": client,
+        "diag_entry_1": coord,
+    }
+
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    assert diag["entry"]["data"]["stop_code"] == "220602"
+    assert diag["entry"]["data"]["custom_lat"] == "**REDACTED**"
+    assert diag["entry"]["data"]["custom_lon"] == "**REDACTED**"
+    assert diag["entry"]["data"]["stop_lat"] == "**REDACTED**"
+    assert diag["entry"]["data"]["stop_lon"] == "**REDACTED**"
+    assert diag["entry"]["options"]["custom_lat"] == "**REDACTED**"
+    veh_diag = diag["coordinator_data"]["vehicles"][0]
+    assert veh_diag["kapino"] == "C-1753"
+    assert veh_diag["latitude"] == "**REDACTED**"
+    assert veh_diag["longitude"] == "**REDACTED**"
+    assert veh_diag["coords"] == "**REDACTED**"
 
 
 # ---------------------------------------------------------------------------

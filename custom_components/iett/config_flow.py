@@ -599,31 +599,66 @@ class IettOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        """Manage options."""
+        """Manage options for Stop (1a), Route (1b), Vehicle (1c), or Root entries."""
         if user_input is not None:
             new_data = {**self._config_entry.data, **user_input}
+            if CONF_VEHICLE_LIMIT_N in new_data:
+                new_data[CONF_VEHICLE_LIMIT_N] = int(new_data[CONF_VEHICLE_LIMIT_N])
             self.hass.config_entries.async_update_entry(self._config_entry, data=new_data)
             await self.hass.config_entries.async_reload(self._config_entry.entry_id)
             return self.async_create_entry(title="", data={})
 
-        feed_type = self._config_entry.data.get(CONF_FEED_TYPE)
-        current_scan = self._config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        data = self._config_entry.data
+        feed_type = data.get(CONF_FEED_TYPE)
+        current_scan = data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
-        schema_dict: dict[Any, Any] = {
-            vol.Optional(CONF_SCAN_INTERVAL, default=current_scan): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=MIN_SCAN_INTERVAL,
-                    max=MAX_SCAN_INTERVAL,
-                    step=5,
-                    mode=selector.NumberSelectorMode.BOX,
-                )
-            ),
-        }
+        schema_dict: dict[Any, Any] = {}
 
         if feed_type == FEED_STOP:
-            current_attrs = self._config_entry.data.get(
-                CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES
+            schema_dict[
+                vol.Optional(
+                    CONF_ROUTE_MODE,
+                    default=data.get(CONF_ROUTE_MODE, ROUTE_MODE_ALL),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=ROUTE_MODE_ALL, label="Tüm Hatlar"),
+                        selector.SelectOptionDict(value=ROUTE_MODE_SELECTED, label="Belli Hatlar"),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
             )
+            schema_dict[
+                vol.Optional(
+                    CONF_VEHICLE_LIMIT_MODE,
+                    default=data.get(CONF_VEHICLE_LIMIT_MODE, LIMIT_MODE_NEAREST_N),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=LIMIT_MODE_NEAREST_N, label="En Yakın N Sayıda Araç"
+                        ),
+                        selector.SelectOptionDict(value=LIMIT_MODE_ALL, label="Tüm Araçlar"),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+            schema_dict[
+                vol.Optional(
+                    CONF_VEHICLE_LIMIT_N,
+                    default=int(data.get(CONF_VEHICLE_LIMIT_N, 1)),
+                )
+            ] = selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=10,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            )
+            current_attrs = data.get(CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES)
             schema_dict[vol.Optional(CONF_STOP_ATTRIBUTES, default=current_attrs)] = (
                 selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -639,7 +674,7 @@ class IettOptionsFlowHandler(config_entries.OptionsFlow):
             schema_dict[
                 vol.Optional(
                     CONF_SPEED_UNIT,
-                    default=self._config_entry.data.get(CONF_SPEED_UNIT, SPEED_UNIT_KMH),
+                    default=data.get(CONF_SPEED_UNIT, SPEED_UNIT_KMH),
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -650,6 +685,103 @@ class IettOptionsFlowHandler(config_entries.OptionsFlow):
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             )
+            schema_dict[
+                vol.Optional(
+                    CONF_CUSTOM_LAT,
+                    default=float(data.get(CONF_CUSTOM_LAT, self.hass.config.latitude or 41.0082)),
+                )
+            ] = selector.NumberSelector(
+                selector.NumberSelectorConfig(mode=selector.NumberSelectorMode.BOX, step="any")
+            )
+            schema_dict[
+                vol.Optional(
+                    CONF_CUSTOM_LON,
+                    default=float(data.get(CONF_CUSTOM_LON, self.hass.config.longitude or 28.9784)),
+                )
+            ] = selector.NumberSelector(
+                selector.NumberSelectorConfig(mode=selector.NumberSelectorMode.BOX, step="any")
+            )
+        elif feed_type == FEED_ROUTE:
+            schema_dict[
+                vol.Optional(
+                    CONF_INCLUDE_ACTIVE_BUSES,
+                    default=data.get(CONF_INCLUDE_ACTIVE_BUSES, True),
+                )
+            ] = bool
+            schema_dict[
+                vol.Optional(
+                    CONF_INCLUDE_ANNOUNCEMENTS,
+                    default=data.get(CONF_INCLUDE_ANNOUNCEMENTS, True),
+                )
+            ] = bool
+            schema_dict[
+                vol.Optional(
+                    CONF_INCLUDE_SCHEDULE,
+                    default=data.get(CONF_INCLUDE_SCHEDULE, True),
+                )
+            ] = bool
+            schema_dict[
+                vol.Optional(
+                    CONF_DIRECTION_FILTER,
+                    default=data.get(CONF_DIRECTION_FILTER, DIR_FILTER_BOTH),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=DIR_FILTER_BOTH, label="Her İki Yön (G+D)"),
+                        selector.SelectOptionDict(value=DIR_FILTER_G, label="Sadece Gidiş (G)"),
+                        selector.SelectOptionDict(value=DIR_FILTER_D, label="Sadece Dönüş (D)"),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+            schema_dict[
+                vol.Optional(
+                    CONF_DEPAR_MODE,
+                    default=data.get(CONF_DEPAR_MODE, DEPAR_MODE_ALL),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=DEPAR_MODE_ALL, label="Tüm Deparları Dahil Et"
+                        ),
+                        selector.SelectOptionDict(
+                            value=DEPAR_MODE_BASE_ONLY, label="Deparları Hariç Tut (Ana Hat D0)"
+                        ),
+                        selector.SelectOptionDict(
+                            value=DEPAR_MODE_SELECTED, label="Sadece Seçili Deparlar"
+                        ),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        elif feed_type == FEED_VEHICLE:
+            schema_dict[
+                vol.Optional(
+                    CONF_SPEED_UNIT,
+                    default=data.get(CONF_SPEED_UNIT, SPEED_UNIT_KMH),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(value=SPEED_UNIT_KMH, label="km/h"),
+                        selector.SelectOptionDict(value=SPEED_UNIT_MPH, label="mph"),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+
+        schema_dict[vol.Optional(CONF_SCAN_INTERVAL, default=current_scan)] = (
+            selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_SCAN_INTERVAL,
+                    max=MAX_SCAN_INTERVAL,
+                    step=5,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            )
+        )
 
         return self.async_show_form(
             step_id="init",

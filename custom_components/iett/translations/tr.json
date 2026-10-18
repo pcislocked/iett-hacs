@@ -96,9 +96,19 @@
         "title": "İETT Seçenekleri",
         "description": "Takip parametrelerini güncelleyin.",
         "data": {
-          "scan_interval": "Yenileme Sıklığı (Saniye)",
+          "route_mode": "Hat Filtresi Türü",
+          "vehicle_limit_mode": "Araç Miktarı Türü",
+          "vehicle_limit_n": "Takip Edilecek En Yakın Araç Sayısı (N)",
           "stop_attributes": "Oluşturulacak Araç Nitelikleri",
-          "speed_unit": "Hız Birimi"
+          "speed_unit": "Hız Birimi",
+          "custom_lat": "Özel Koordinat Enlem (Ev vb.)",
+          "custom_lon": "Özel Koordinat Boylam (Ev vb.)",
+          "include_active_buses": "Aktif Araç Sayısı Sensörü",
+          "include_announcements": "Hat Duyuruları Sensörü",
+          "include_schedule": "Planlanan Kalkış Saati Sensörü",
+          "direction_filter": "Kalkış Saati Yön Filtresi",
+          "depar_mode": "Depar / Varyant Filtresi",
+          "scan_interval": "Yenileme Sıklığı (Saniye)"
         }
       }
     }

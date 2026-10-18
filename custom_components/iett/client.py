@@ -185,9 +185,10 @@ class IettClient:
             except Exception as exc:
                 raise IettApiError(f"NTCAPI auth failed: {exc}") from exc
 
-            token = data.get("access_token")
+            token = data.get("access_token") if isinstance(data, dict) else None
             if not token:
-                raise IettApiError(f"NTCAPI auth missing access_token: {data}")
+                keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+                raise IettApiError(f"NTCAPI auth missing access_token (keys={keys})")
 
             expires_in = data.get("expires_in", 3600)
             self._token = token
@@ -705,6 +706,15 @@ class IettClient:
         hk = hat_kodu.upper().strip()
         safe_hat = xml_escape(hk)
 
+        def _safe_coord(val: Any) -> float | None:
+            if val is None:
+                return None
+            try:
+                f = float(val)
+                return f if f != 0.0 else None
+            except (ValueError, TypeError):
+                return None
+
         async def fetch_soap() -> list[BusPosition]:
             try:
                 xml = await self._soap_post(
@@ -724,8 +734,8 @@ class IettClient:
                     buses.append(
                         BusPosition(
                             kapino=kapi,
-                            latitude=float(r.get("enlem", 0.0)) or None,
-                            longitude=float(r.get("boylam", 0.0)) or None,
+                            latitude=_safe_coord(r.get("enlem")),
+                            longitude=_safe_coord(r.get("boylam")),
                             last_seen=str(r.get("son_konum_zamani", "")),
                             route_code=hk,
                             route_name=r.get("hatad"),
@@ -768,8 +778,8 @@ class IettClient:
                     buses.append(
                         BusPosition(
                             kapino=kapi,
-                            latitude=float(r.get("ENLEM", 0.0)) or None,
-                            longitude=float(r.get("BOYLAM", 0.0)) or None,
+                            latitude=_safe_coord(r.get("ENLEM")),
+                            longitude=_safe_coord(r.get("BOYLAM")),
                             last_seen=str(r.get("SISTEMSAATI", "")),
                             route_code=hk,
                             direction_letter=dir_letter,
@@ -924,15 +934,12 @@ class IettClient:
         if not kapi:
             return None
 
-        # 1. Update fleet cache if stale
-        try:
-            await self.ensure_fleet_fresh()
-        except Exception:  # noqa: BLE001
-            pass
+        async def ensure_fleet_safe() -> None:
+            try:
+                await self.ensure_fleet_fresh()
+            except Exception:  # noqa: BLE001
+                pass
 
-        bus_fleet = self._fleet_by_kapino.get(kapi)
-
-        # 2. Query NTCAPI for live position
         async def fetch_ntc_location() -> dict[str, Any] | None:
             for variant in (kapi, kapi.replace("-", "")):
                 try:
@@ -941,8 +948,8 @@ class IettClient:
                     if isinstance(res, list) and res:
                         item = res[0]
                         try:
-                            lat = float(item.get("H_OTOBUSKONUM_ENLEM", 0.0))
-                            lon = float(item.get("H_OTOBUSKONUM_BOYLAM", 0.0))
+                            lat = float(item.get("H_OTOBUSKONUM_ENLEM") or 0.0)
+                            lon = float(item.get("H_OTOBUSKONUM_BOYLAM") or 0.0)
                         except (ValueError, TypeError):
                             lat, lon = 0.0, 0.0
                         try:
@@ -965,7 +972,8 @@ class IettClient:
                     pass
             return None
 
-        ntc_data = await fetch_ntc_location()
+        _, ntc_data = await asyncio.gather(ensure_fleet_safe(), fetch_ntc_location())
+        bus_fleet = self._fleet_by_kapino.get(kapi)
 
         if not bus_fleet and not ntc_data:
             return None

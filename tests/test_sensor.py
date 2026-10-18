@@ -121,7 +121,15 @@ class TestStopSensors:
         assert sensor.native_value == 4
 
     def test_stop_vehicle_slot_object_and_attr_sensors(self) -> None:
-        entry = _mock_entry({CONF_FEED_TYPE: FEED_STOP, CONF_STOP_CODE: "220602"})
+        from custom_components.iett.const import ALL_STOP_ATTRIBUTE_OPTIONS, CONF_STOP_ATTRIBUTES
+
+        entry = _mock_entry(
+            {
+                CONF_FEED_TYPE: FEED_STOP,
+                CONF_STOP_CODE: "220602",
+                CONF_STOP_ATTRIBUTES: ALL_STOP_ATTRIBUTE_OPTIONS,
+            }
+        )
         coord = _mock_coord(
             {
                 "vehicles": [
@@ -171,6 +179,44 @@ class TestStopSensors:
             coord, entry, _mock_device(), slot=1, attr_key=ATTR_OPT_DIST_STOP, name="Mesafe"
         )
         assert s_dist.native_value == 1200
+
+    def test_stop_vehicle_object_filters_unselected_attributes(self) -> None:
+        from custom_components.iett.const import CONF_STOP_ATTRIBUTES, CONF_VEHICLE_LIMIT_MODE
+
+        entry = _mock_entry(
+            {
+                CONF_FEED_TYPE: FEED_STOP,
+                CONF_STOP_CODE: "220602",
+                CONF_VEHICLE_LIMIT_MODE: "all",
+                CONF_STOP_ATTRIBUTES: [ATTR_OPT_HATNO, ATTR_OPT_ETA],
+            }
+        )
+        coord = _mock_coord(
+            {
+                "arriving_count": 1,
+                "vehicles": [
+                    {
+                        ATTR_OPT_HATNO: "500T",
+                        ATTR_OPT_PLAKA: "34 HO 1234",
+                        ATTR_OPT_ETA: 5,
+                        ATTR_OPT_SPEED: 35,
+                        "destination": "CEVİZLİBAĞ",
+                        "kapino": "C-1753",
+                    }
+                ],
+            }
+        )
+        slot_obj = IettStopVehicleObjectSensor(coord, entry, _mock_device(), slot=1)
+        attrs = slot_obj.extra_state_attributes
+        assert attrs[ATTR_OPT_HATNO] == "500T"
+        assert attrs[ATTR_OPT_ETA] == 5
+        assert ATTR_OPT_PLAKA not in attrs
+        assert ATTR_OPT_SPEED not in attrs
+
+        general = IettStopGeneralSensor(coord, entry, _mock_device())
+        gen_attrs = general.extra_state_attributes
+        assert gen_attrs["route_mode"] == "all"
+        assert ATTR_OPT_PLAKA not in gen_attrs["vehicles"][0]
 
 
 # ---------------------------------------------------------------------------

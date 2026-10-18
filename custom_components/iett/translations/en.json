@@ -96,9 +96,19 @@
         "title": "İETT Options",
         "description": "Update tracking parameters.",
         "data": {
-          "scan_interval": "Update Interval (Seconds)",
+          "route_mode": "Route Filter Mode",
+          "vehicle_limit_mode": "Vehicle Limit Mode",
+          "vehicle_limit_n": "Nearest Vehicles to Track (N)",
           "stop_attributes": "Vehicle Attributes to Create",
-          "speed_unit": "Speed Unit"
+          "speed_unit": "Speed Unit",
+          "custom_lat": "Custom Target Latitude (Home etc.)",
+          "custom_lon": "Custom Target Longitude (Home etc.)",
+          "include_active_buses": "Active Buses Sensor",
+          "include_announcements": "Disruption Announcements Sensor",
+          "include_schedule": "Next Timetable Departure Sensor",
+          "direction_filter": "Departure Direction Filter",
+          "depar_mode": "Pattern / Depar Filter",
+          "scan_interval": "Update Interval (Seconds)"
         }
       }
     }

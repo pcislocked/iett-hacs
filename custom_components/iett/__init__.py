@@ -19,10 +19,12 @@ from .const import (
     CONF_INCLUDE_ACTIVE_BUSES,
     CONF_INCLUDE_ANNOUNCEMENTS,
     CONF_INCLUDE_SCHEDULE,
+    CONF_ROUTE_CODE,
     CONF_ROUTE_MODE,
     CONF_SCAN_INTERVAL,
     CONF_SPEED_UNIT,
     CONF_STOP_ATTRIBUTES,
+    CONF_STOP_CODE,
     CONF_VEHICLE_LIMIT_MODE,
     CONF_VEHICLE_LIMIT_N,
     DEFAULT_SCAN_INTERVAL,
@@ -166,12 +168,16 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         if feed_type in (FEED_ALL_FLEET, "all_fleet"):
             new_data[CONF_FEED_TYPE] = FEED_ROOT
         elif feed_type == FEED_STOP:
+            if "dcode" in new_data and CONF_STOP_CODE not in new_data:
+                new_data[CONF_STOP_CODE] = new_data.pop("dcode")
             new_data.setdefault(CONF_ROUTE_MODE, ROUTE_MODE_ALL)
             new_data.setdefault(CONF_VEHICLE_LIMIT_MODE, LIMIT_MODE_NEAREST_N)
             new_data.setdefault(CONF_VEHICLE_LIMIT_N, 1)
             new_data.setdefault(CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES)
             new_data.setdefault(CONF_SPEED_UNIT, SPEED_UNIT_KMH)
         elif feed_type == FEED_ROUTE:
+            if "hat_kodu" in new_data and CONF_ROUTE_CODE not in new_data:
+                new_data[CONF_ROUTE_CODE] = new_data.pop("hat_kodu")
             new_data.setdefault(CONF_INCLUDE_ACTIVE_BUSES, True)
             new_data.setdefault(CONF_INCLUDE_ANNOUNCEMENTS, True)
             new_data.setdefault(CONF_INCLUDE_SCHEDULE, True)

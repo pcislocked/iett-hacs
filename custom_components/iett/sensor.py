@@ -417,6 +417,38 @@ class IettStopGeneralSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntit
             return 0
         return int(self.coordinator.data.get("arriving_count", 0))
 
+    def _filter_vehicle_attrs(self, veh: dict[str, Any]) -> dict[str, Any]:
+        """Return only user-selected attributes plus core identification keys."""
+        selected = set(self.entry.data.get(CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES))
+        out: dict[str, Any] = {
+            "kapino": veh.get("kapino"),
+            "destination": veh.get("destination"),
+        }
+        if ATTR_OPT_HATNO in selected:
+            out[ATTR_OPT_HATNO] = veh.get(ATTR_OPT_HATNO)
+        if ATTR_OPT_PLAKA in selected:
+            out[ATTR_OPT_PLAKA] = veh.get(ATTR_OPT_PLAKA)
+        if ATTR_OPT_ETA in selected:
+            out[ATTR_OPT_ETA] = veh.get(ATTR_OPT_ETA)
+            out["eta_raw"] = veh.get("eta_raw")
+        if ATTR_OPT_ETA_MMSS in selected:
+            out[ATTR_OPT_ETA_MMSS] = veh.get(ATTR_OPT_ETA_MMSS)
+        if ATTR_OPT_COORDS in selected:
+            out[ATTR_OPT_COORDS] = veh.get(ATTR_OPT_COORDS)
+            out["latitude"] = veh.get("latitude")
+            out["longitude"] = veh.get("longitude")
+        if ATTR_OPT_DIST_STOP in selected:
+            out[ATTR_OPT_DIST_STOP] = veh.get(ATTR_OPT_DIST_STOP)
+        if ATTR_OPT_DIST_CUSTOM in selected:
+            out[ATTR_OPT_DIST_CUSTOM] = veh.get(ATTR_OPT_DIST_CUSTOM)
+        if ATTR_OPT_SPEED in selected:
+            out[ATTR_OPT_SPEED] = veh.get(ATTR_OPT_SPEED)
+            out["speed_unit"] = veh.get("speed_unit")
+        if ATTR_OPT_AMENITIES in selected:
+            out["amenities"] = veh.get("amenities")
+            out["amenities_summary"] = veh.get("amenities_summary")
+        return out
+
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -428,9 +460,12 @@ class IettStopGeneralSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntit
             "district": self.entry.data.get("stop_district"),
             "stop_type": self.entry.data.get("stop_type"),
             "smart_stop": self.entry.data.get("stop_smart"),
+            "route_mode": self.entry.data.get("route_mode", "all"),
+            "selected_routes": self.entry.data.get("selected_routes", []),
         }
         if self.coordinator.data and self.entry.data.get(CONF_VEHICLE_LIMIT_MODE) == "all":
-            attrs["vehicles"] = self.coordinator.data.get("vehicles", [])
+            raw_vehicles = self.coordinator.data.get("vehicles", [])
+            attrs["vehicles"] = [self._filter_vehicle_attrs(v) for v in raw_vehicles]
         return attrs
 
 
@@ -476,7 +511,38 @@ class IettStopVehicleObjectSensor(CoordinatorEntity[IettEntryCoordinator], Senso
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         veh = self._get_vehicle()
-        return veh or {}
+        if not veh:
+            return {}
+        selected = set(self.entry.data.get(CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES))
+        out: dict[str, Any] = {
+            "kapino": veh.get("kapino"),
+            "destination": veh.get("destination"),
+            "last_seen_ts": veh.get("last_seen_ts"),
+        }
+        if ATTR_OPT_HATNO in selected:
+            out[ATTR_OPT_HATNO] = veh.get(ATTR_OPT_HATNO)
+        if ATTR_OPT_PLAKA in selected:
+            out[ATTR_OPT_PLAKA] = veh.get(ATTR_OPT_PLAKA)
+        if ATTR_OPT_ETA in selected:
+            out[ATTR_OPT_ETA] = veh.get(ATTR_OPT_ETA)
+            out["eta_raw"] = veh.get("eta_raw")
+        if ATTR_OPT_ETA_MMSS in selected:
+            out[ATTR_OPT_ETA_MMSS] = veh.get(ATTR_OPT_ETA_MMSS)
+        if ATTR_OPT_COORDS in selected:
+            out[ATTR_OPT_COORDS] = veh.get(ATTR_OPT_COORDS)
+            out["latitude"] = veh.get("latitude")
+            out["longitude"] = veh.get("longitude")
+        if ATTR_OPT_DIST_STOP in selected:
+            out[ATTR_OPT_DIST_STOP] = veh.get(ATTR_OPT_DIST_STOP)
+        if ATTR_OPT_DIST_CUSTOM in selected:
+            out[ATTR_OPT_DIST_CUSTOM] = veh.get(ATTR_OPT_DIST_CUSTOM)
+        if ATTR_OPT_SPEED in selected:
+            out[ATTR_OPT_SPEED] = veh.get(ATTR_OPT_SPEED)
+            out["speed_unit"] = veh.get("speed_unit")
+        if ATTR_OPT_AMENITIES in selected:
+            out["amenities"] = veh.get("amenities")
+            out["amenities_summary"] = veh.get("amenities_summary")
+        return out
 
 
 class IettStopSlotAttrSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntity):

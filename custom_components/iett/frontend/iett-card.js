@@ -45,6 +45,15 @@ class IettCard extends HTMLElement {
   setConfig(config) {
     if (!config) throw new Error("Geçersiz kart konfigürasyonu");
     const mode = config.mode || (config.route_code ? "route" : config.kapino ? "vehicle" : "stop");
+    if (mode === "stop" && !config.stop_code && !config.entity) {
+      throw new Error("Durak modu için stop_code veya entity gereklidir");
+    }
+    if (mode === "route" && !config.route_code && !config.entity) {
+      throw new Error("Hat modu için route_code veya entity gereklidir");
+    }
+    if (mode === "vehicle" && !config.kapino && !config.entity) {
+      throw new Error("Araç modu için kapino veya entity gereklidir");
+    }
     this._config = {
       mode,
       theme: "led",
@@ -53,8 +62,11 @@ class IettCard extends HTMLElement {
       ...config,
     };
     this._render();
-    if (this.isConnected && this._hass) {
-      this._fetchData();
+    if (this.isConnected) {
+      this._startTimer();
+      if (this._hass) {
+        this._fetchData();
+      }
     }
   }
 
@@ -64,7 +76,8 @@ class IettCard extends HTMLElement {
     if (firstHass && this.isConnected) {
       this._fetchData();
     } else if (this._config && this._config.entity) {
-      // If bound to entity, re-render on state change
+      // If bound to entity, sync from entity state and re-render
+      this._syncFromEntity();
       this._render();
     }
   }
@@ -105,6 +118,57 @@ class IettCard extends HTMLElement {
     }
   }
 
+  _syncFromEntity() {
+    if (!this._hass || !this._config?.entity) return false;
+    const stateObj = this._hass.states?.[this._config.entity];
+    if (!stateObj) return false;
+    const attrs = stateObj.attributes || {};
+    const mode = this._config.mode;
+    if (mode === "stop") {
+      const vehicles = attrs.vehicles || [];
+      this._data = {
+        stop_code: attrs.stop_code || this._config.stop_code || "",
+        stop_name: attrs.stop_name || attrs.friendly_name || this._config.entity,
+        direction: attrs.direction || "",
+        arrivals: vehicles.map((v) => ({
+          route_code: v.hatno || v.route_code || "",
+          destination: v.destination || "",
+          eta_minutes: v.eta ?? v.eta_minutes ?? null,
+          eta_mmss: v.eta_mmss || null,
+          eta_raw: v.eta_raw || "",
+          kapino: v.kapino || null,
+          plate: v.plaka || v.plate || null,
+          distance_to_stop_m: v.dist_stop ?? v.distance_to_stop_m ?? null,
+          amenities: v.amenities || {},
+        })),
+      };
+      return true;
+    }
+    if (mode === "route") {
+      this._data = {
+        route_code: attrs.route_code || this._config.route_code || "",
+        active_buses: attrs.buses ? attrs.buses.length : stateObj.state,
+        announcements: attrs.announcements || [],
+        schedule: attrs.upcoming_departures || [],
+      };
+      return true;
+    }
+    if (mode === "vehicle") {
+      this._data = {
+        kapino: attrs.kapino || this._config.kapino || "",
+        online: stateObj.state !== "unavailable" && stateObj.state !== "unknown" && stateObj.state !== "off",
+        vehicle: {
+          plate: attrs.plate || stateObj.state,
+          route_code: attrs.route_code || null,
+          speed: attrs.speed ?? null,
+          operator: attrs.operator || null,
+        },
+      };
+      return true;
+    }
+    return false;
+  }
+
   async _fetchData() {
     if (!this._hass || !this._config) return;
     this._loading = true;
@@ -132,9 +196,13 @@ class IettCard extends HTMLElement {
           kapino: String(this._config.kapino).trim().toUpperCase(),
         });
         this._data = res;
+      } else if (this._config.entity) {
+        this._syncFromEntity();
       }
     } catch (err) {
-      this._error = err.message || "Veri alınamadı";
+      if (!this._syncFromEntity()) {
+        this._error = err.message || "Veri alınamadı";
+      }
     } finally {
       this._loading = false;
       this._render();
