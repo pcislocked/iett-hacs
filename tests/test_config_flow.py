@@ -288,9 +288,7 @@ async def test_options_flow_update_listener_no_duplicate_reload(hass: MagicMock)
     options_flow = IettOptionsFlowHandler(entry)
     options_flow.hass = hass
 
-    result = await options_flow.async_step_init(
-        user_input={CONF_SCAN_INTERVAL: 60}
-    )
+    result = await options_flow.async_step_init(user_input={CONF_SCAN_INTERVAL: 60})
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
 
     # Yield event loop to allow listener task to execute

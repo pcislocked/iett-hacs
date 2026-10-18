@@ -354,7 +354,9 @@ async def test_frontend_registration_when_ha_already_running(hass: MagicMock) ->
     hass.bus = MagicMock()
     hass.bus.async_listen_once = MagicMock()
 
-    with patch("custom_components.iett._async_register_lovelace_resource", AsyncMock(return_value=False)):
+    with patch(
+        "custom_components.iett._async_register_lovelace_resource", AsyncMock(return_value=False)
+    ):
         await _async_register_frontend(hass)
 
     # EVENT_HOMEASSISTANT_START listener should NOT be attached because HA is already running

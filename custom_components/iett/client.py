@@ -216,11 +216,7 @@ class IettClient:
         returned immediately to prevent thundering-herd re-authentication.
         """
         now = time.monotonic()
-        if (
-            failed_token is None
-            and self._token
-            and now < self._token_expiry - 60
-        ):
+        if failed_token is None and self._token and now < self._token_expiry - 60:
             return self._token
 
         async with self._token_lock:
