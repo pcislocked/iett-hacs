@@ -134,7 +134,7 @@ ANNOUNCEMENT_RAM_CACHE_TTL: Final = 600
 def _get_frontend_version() -> str:
     """Calculate frontend version string from manifest and card JS hash."""
     base_dir = Path(__file__).parent
-    version = "2.1.0"
+    version = "2.1.1"
     try:
         manifest_path = base_dir / "manifest.json"
         if manifest_path.exists():
