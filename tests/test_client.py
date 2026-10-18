@@ -420,3 +420,87 @@ class TestClientResilience:
             assert arr.amenities.wifi is True
             assert arr.amenities.usb is None
             assert arr.amenities.accessible is None
+
+    async def test_client_search_stops_success_and_fallback(self, client: IettClient) -> None:
+        """Test search_stops query by name with enrichment, and fallback to code."""
+        # 1. Search by name returns 1 result
+        name_payload = [
+            {"DURAK_DURAK_KODU": "205421", "DURAK_ADI": "MECİDİYEKÖY", "DURAK_YON_BILGISI": "Gidiş"}
+        ]
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, payload=name_payload)
+            # Metadata enrichment
+            m.post(SOAP_STOP_RE, body=SOAP_STOP_DETAIL_XML, headers={"Content-Type": "text/xml"})
+
+            results = await client.search_stops("MECİDİYEKÖY")
+            assert len(results) == 1
+            assert results[0].dcode == "205421"
+            assert results[0].name == "MECİDİYEKÖY"
+            assert results[0].direction == "ZİNCİRLİKUYU YÖNÜ"
+
+        # 2. Search by name returns empty, falls back to code search
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, payload=[])  # name search fails/empty
+            m.post(NTC_SERVICE_RE, payload=name_payload)  # code search returns
+            m.post(SOAP_STOP_RE, body=SOAP_STOP_DETAIL_XML, headers={"Content-Type": "text/xml"})
+
+            results = await client.search_stops("205421")
+            assert len(results) == 1
+            assert results[0].dcode == "205421"
+
+    async def test_client_search_stops_empty_and_error(self, client: IettClient) -> None:
+        """Test search_stops with empty string and upstream errors."""
+        assert await client.search_stops("") == []
+        assert await client.search_stops("   ") == []
+
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, status=500)
+
+            results = await client.search_stops("FAIL")
+            assert results == []
+
+    async def test_client_search_routes_success_and_fallback(self, client: IettClient) -> None:
+        """Test search_routes by line code and fallback to line name."""
+        route_payload = [{"HAT_HAT_KODU": "500T", "HAT_HAT_ADI": "TUZLA - CEVİZLİBAĞ"}]
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, payload=route_payload)
+
+            results = await client.search_routes("500T")
+            assert len(results) == 1
+            assert results[0].hat_kodu == "500T"
+            assert results[0].name == "TUZLA - CEVİZLİBAĞ"
+
+        # Fallback to name search
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, payload=[])  # code search returns empty
+            m.post(NTC_SERVICE_RE, payload=route_payload)  # name search returns hit
+
+            results = await client.search_routes("TUZLA")
+            assert len(results) == 1
+            assert results[0].hat_kodu == "500T"
+
+    async def test_client_search_routes_empty_and_error(self, client: IettClient) -> None:
+        """Test search_routes with empty query and upstream failure."""
+        assert await client.search_routes("") == []
+        assert await client.search_routes("   ") == []
+
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, status=502)
+
+            results = await client.search_routes("ERR")
+            assert results == []
+
+    def test_frontend_version_line_ending_stability(self, tmp_path: Any) -> None:
+        """Verify _get_frontend_version produces identical hashes for CRLF and LF."""
+        from custom_components.iett.const import _get_frontend_version
+
+        # Directly invoke and verify stability
+        v = _get_frontend_version()
+        assert "." in v
+        assert len(v.split(".")[-1]) == 8

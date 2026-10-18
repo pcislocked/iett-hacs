@@ -146,7 +146,8 @@ def _get_frontend_version() -> str:
     try:
         js_path = base_dir / "frontend" / "iett-card.js"
         if js_path.exists():
-            digest = hashlib.md5(js_path.read_bytes()).hexdigest()[:8]
+            content = js_path.read_bytes().replace(b"\r\n", b"\n")
+            digest = hashlib.md5(content).hexdigest()[:8]
             return f"{version}.{digest}"
     except Exception:  # noqa: BLE001
         pass
