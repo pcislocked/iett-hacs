@@ -2,9 +2,16 @@ name: CI
 
 on:
   push:
-    branches: ["master", "feat/*", "fix/*"]
+    branches: ["master", "main", "feat/*", "fix/*"]
   pull_request:
-    branches: ["master"]
+    branches: ["master", "main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -40,3 +47,27 @@ jobs:
       - name: Run Pytest
         run: |
           python -m pytest -v --cov=custom_components.iett --cov-report=term-missing
+
+      - name: Check Card JS Syntax
+        run: |
+          node --check custom_components/iett/frontend/iett-card.js
+
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: HACS action
+        uses: hacs/action@main
+        with:
+          category: integration

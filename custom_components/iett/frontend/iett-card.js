@@ -255,7 +255,9 @@ class IettCard extends HTMLElement {
       }
     } finally {
       this._loading = false;
-      this._render();
+      if (this.isConnected) {
+        this._render();
+      }
     }
   }
 
@@ -526,10 +528,10 @@ class IettCard extends HTMLElement {
 
           const am = (arr && typeof arr.amenities === "object" && arr.amenities !== null) ? arr.amenities : {};
           const amIcons = [];
-          if (am.ac) amIcons.push("❄️");
-          if (am.wifi) amIcons.push("📶");
-          if (am.usb) amIcons.push("🔌");
-          if (am.accessible) amIcons.push("♿");
+          if (am.ac) amIcons.push('<span role="img" aria-label="Klimalı">❄️</span>');
+          if (am.wifi) amIcons.push('<span role="img" aria-label="Ücretsiz WiFi">📶</span>');
+          if (am.usb) amIcons.push('<span role="img" aria-label="USB Şarj">🔌</span>');
+          if (am.accessible) amIcons.push('<span role="img" aria-label="Engelli Rampası">♿</span>');
 
           const pillTitle = absText ? `Tahmini Varış Saati: ${escapeHtml(absText)}` : "";
 
@@ -542,7 +544,7 @@ class IettCard extends HTMLElement {
                   <div class="arrival-meta">
                     ${kapiPlate ? `<span>${escapeHtml(kapiPlate)}</span>` : ""}
                     ${distText ? `<span>${escapeHtml(distText)}</span>` : ""}
-                    ${amIcons.length ? `<span class="amenity-chip">${escapeHtml(amIcons.join(""))}</span>` : ""}
+                    ${amIcons.length ? `<span class="amenity-chip">${amIcons.join(" ")}</span>` : ""}
                   </div>
                 </div>
               </div>

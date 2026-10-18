@@ -188,6 +188,33 @@ async def test_route_flow_success(hass: MagicMock, mock_client: MagicMock) -> No
     assert result2["data"][CONF_ROUTE_CODE] == "500T"
 
 
+async def test_route_flow_ambiguous_select(hass: MagicMock, mock_client: MagicMock) -> None:
+    """Test route flow when search returns multiple routes prompting route_select."""
+    from custom_components.iett.models import RouteSearchResult
+
+    mock_client.search_routes = AsyncMock(
+        return_value=[
+            RouteSearchResult(hat_kodu="14B", name="KADIKÖY - BİRLİK"),
+            RouteSearchResult(hat_kodu="14ES", name="KADIKÖY - ESENKENT"),
+        ]
+    )
+    mock_client.get_route_variants = AsyncMock(return_value=[])
+    flow = _init_flow(hass, mock_client)
+
+    result = await flow.async_step_route({"route_query": "KADIKÖY"})
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "route_select"
+
+    result2 = await flow.async_step_route_select({"selected_route": "14B"})
+    assert result2["type"] == data_entry_flow.FlowResultType.FORM
+    assert result2["step_id"] == "route_config"
+
+    result3 = await flow.async_step_route_config({})
+    assert result3["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result3["title"] == "Hat 14B"
+    assert result3["data"][CONF_ROUTE_CODE] == "14B"
+
+
 # ---------------------------------------------------------------------------
 # Vehicle Wizard (1c) Tests (Strict Kapı No Only)
 # ---------------------------------------------------------------------------
