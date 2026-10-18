@@ -1,48 +1,72 @@
-"""Tests for IettCoordinator — mocks IettMiddleClient & HomeAssistant."""
+"""Tests for IettCoordinator v2 — IettRootCoordinator and IettEntryCoordinator."""
+
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
+from custom_components.iett.client import IettApiError
 from custom_components.iett.const import (
-    CONF_DCODE,
-    CONF_HAT_KODU,
-    CONF_MIDDLE_URL,
-    FEED_ALL_FLEET,
-    FEED_ROUTE_ANNOUNCEMENTS,
-    FEED_ROUTE_FLEET,
-    FEED_ROUTE_SCHEDULE,
-    FEED_STOP_ARRIVALS,
+    ATTR_OPT_DIST_CUSTOM,
+    ATTR_OPT_DIST_STOP,
+    ATTR_OPT_ETA,
+    ATTR_OPT_ETA_MMSS,
+    ATTR_OPT_HATNO,
+    ATTR_OPT_PLAKA,
+    ATTR_OPT_SPEED,
+    CONF_CUSTOM_LAT,
+    CONF_CUSTOM_LON,
+    CONF_DEPAR_MODE,
+    CONF_FEED_TYPE,
+    CONF_INCLUDE_ACTIVE_BUSES,
+    CONF_INCLUDE_ANNOUNCEMENTS,
+    CONF_INCLUDE_SCHEDULE,
+    CONF_KAPINO,
+    CONF_ROUTE_CODE,
+    CONF_ROUTE_MODE,
+    CONF_SELECTED_ROUTES,
+    CONF_SPEED_UNIT,
+    CONF_STOP_CODE,
+    CONF_STOP_LAT,
+    CONF_STOP_LON,
+    CONF_STOP_NAME,
+    CONF_VEHICLE_LIMIT_MODE,
+    CONF_VEHICLE_LIMIT_N,
+    DEPAR_MODE_BASE_ONLY,
+    FEED_ROUTE,
+    FEED_STOP,
+    FEED_VEHICLE,
+    LIMIT_MODE_NEAREST_N,
+    ROUTE_MODE_SELECTED,
+    SPEED_UNIT_KMH,
+    SPEED_UNIT_MPH,
 )
-from custom_components.iett.coordinator import IettCoordinator
-from custom_components.iett.client import IettMiddleError
-from tests.conftest import (
-    ANNOUNCEMENTS_JSON,
-    ARRIVALS_JSON,
-    FLEET_JSON,
-    ROUTE_FLEET_JSON,
-    SCHEDULE_JSON,
+from custom_components.iett.coordinator import IettEntryCoordinator, IettRootCoordinator
+from custom_components.iett.models import (
+    Amenities,
+    Announcement,
+    Arrival,
+    BusPosition,
+    RootStatus,
+    ScheduledDeparture,
 )
 
 
 def _make_hass() -> MagicMock:
-    """Return a minimal HomeAssistant mock."""
     hass = MagicMock()
     hass.loop = MagicMock()
     hass.config = MagicMock()
     return hass
 
 
-def _entry_data(feed_type: str, **extra: Any) -> dict[str, Any]:
-    return {
-        "feed_type": feed_type,
-        CONF_MIDDLE_URL: "http://iett-middle.test",
-        CONF_HAT_KODU: "500T",
-        CONF_DCODE: "220602",
-        **extra,
-    }
+def _make_entry(entry_id: str, data: dict[str, Any]) -> MagicMock:
+    entry = MagicMock()
+    entry.entry_id = entry_id
+    entry.data = data
+    return entry
 
 
 @pytest.fixture()
@@ -51,116 +75,260 @@ def hass() -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# FEED_ALL_FLEET
+# Root Coordinator Tests
 # ---------------------------------------------------------------------------
 
-class TestCoordinatorAllFleet:
-    async def test_returns_fleet(self, hass: MagicMock) -> None:
-        coord = IettCoordinator(hass, _entry_data(FEED_ALL_FLEET))
-        mock_client = MagicMock()
-        mock_client.get_all_buses = AsyncMock(return_value=FLEET_JSON)
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            result = await coord._async_update_data()  # type: ignore[reportPrivateUsage]
-        assert result == FLEET_JSON
 
-    async def test_raises_update_failed(self, hass: MagicMock) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-        coord = IettCoordinator(hass, _entry_data(FEED_ALL_FLEET))
-        mock_client = MagicMock()
-        mock_client.get_all_buses = AsyncMock(side_effect=IettMiddleError("down"))
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            with pytest.raises(UpdateFailed):
-                await coord._async_update_data()  # type: ignore[reportPrivateUsage]
+class TestRootCoordinator:
+    async def test_update_success(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        client.get_root_status = AsyncMock(
+            return_value=RootStatus(
+                traffic_overall=42,
+                traffic_europe=46,
+                traffic_anatolia=38,
+                active_fleet_count=2500,
+            )
+        )
+        coord = IettRootCoordinator(hass, client)
+        data = await coord._async_update_data()
 
+        assert data["traffic_overall"] == 42
+        assert data["traffic_europe"] == 46
+        assert data["traffic_anatolia"] == 38
+        assert data["active_fleet_count"] == 2500
 
-# ---------------------------------------------------------------------------
-# FEED_ROUTE_FLEET
-# ---------------------------------------------------------------------------
+    async def test_update_failed_on_error(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        client.get_root_status = AsyncMock(side_effect=IettApiError("Server Down"))
+        coord = IettRootCoordinator(hass, client)
 
-class TestCoordinatorRouteFleet:
-    async def test_returns_route_buses(self, hass: MagicMock) -> None:
-        coord = IettCoordinator(hass, _entry_data(FEED_ROUTE_FLEET))
-        mock_client = MagicMock()
-        mock_client.get_route_buses = AsyncMock(return_value=ROUTE_FLEET_JSON)
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            result = await coord._async_update_data()  # type: ignore[reportPrivateUsage]
-        assert result == ROUTE_FLEET_JSON
-        mock_client.get_route_buses.assert_called_once_with("500T")
-
-    async def test_raises_update_failed_on_error(self, hass: MagicMock) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-        coord = IettCoordinator(hass, _entry_data(FEED_ROUTE_FLEET))
-        mock_client = MagicMock()
-        mock_client.get_route_buses = AsyncMock(side_effect=IettMiddleError("bad"))
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            with pytest.raises(UpdateFailed):
-                await coord._async_update_data()  # type: ignore[reportPrivateUsage]
+        with pytest.raises(UpdateFailed):
+            await coord._async_update_data()
 
 
 # ---------------------------------------------------------------------------
-# FEED_STOP_ARRIVALS
+# Stop Coordinator (1a) Tests
 # ---------------------------------------------------------------------------
 
-class TestCoordinatorStopArrivals:
-    async def test_returns_arrivals(self, hass: MagicMock) -> None:
-        coord = IettCoordinator(hass, _entry_data(FEED_STOP_ARRIVALS))
-        mock_client = MagicMock()
-        mock_client.get_stop_arrivals = AsyncMock(return_value=ARRIVALS_JSON)
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            result = await coord._async_update_data()  # type: ignore[reportPrivateUsage]
-        assert result == ARRIVALS_JSON
-        mock_client.get_stop_arrivals.assert_called_once_with("220602")
+
+class TestStopCoordinator:
+    async def test_stop_with_derived_attributes(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        arrivals = [
+            Arrival(
+                route_code="500T",
+                destination="CEVİZLİBAĞ",
+                eta_minutes=5,
+                eta_raw="14:35",
+                kapino="C-1753",
+                plate="34 HO 1234",
+                lat=41.0450,
+                lon=29.0020,
+                speed_kmh=36,
+                last_seen_ts="14:30:00",
+                amenities=Amenities(ac=True, wifi=True, usb=True, accessible=True),
+            ),
+            Arrival(
+                route_code="14M",
+                destination="KAVACIK",
+                eta_minutes=12,
+                eta_raw="14:42",
+                kapino="A-001",
+                plate="34 TP 2000",
+                lat=41.0819,
+                lon=29.0109,
+                speed_kmh=0,
+                last_seen_ts="14:29:45",
+                amenities=Amenities(ac=True),
+            ),
+        ]
+        client.get_stop_arrivals = AsyncMock(return_value=arrivals)
+
+        entry = _make_entry(
+            "stop_entry_1",
+            {
+                CONF_FEED_TYPE: FEED_STOP,
+                CONF_STOP_CODE: "220602",
+                CONF_STOP_NAME: "BEŞİKTAŞ MEYDAN",
+                CONF_STOP_LAT: 41.0428,
+                CONF_STOP_LON: 29.0069,
+                CONF_CUSTOM_LAT: 41.0500,
+                CONF_CUSTOM_LON: 29.0100,
+                CONF_SPEED_UNIT: SPEED_UNIT_KMH,
+                CONF_VEHICLE_LIMIT_MODE: LIMIT_MODE_NEAREST_N,
+                CONF_VEHICLE_LIMIT_N: 2,
+            },
+        )
+        coord = IettEntryCoordinator(hass, entry, client)
+        data = await coord._async_update_data()
+
+        assert data["feed_type"] == FEED_STOP
+        assert data["stop_code"] == "220602"
+        assert data["arriving_count"] == 2
+        assert len(data["vehicles"]) == 2
+
+        v1 = data["vehicles"][0]
+        assert v1[ATTR_OPT_HATNO] == "500T"
+        assert v1[ATTR_OPT_PLAKA] == "34 HO 1234"
+        assert v1[ATTR_OPT_ETA] == 5
+        assert v1[ATTR_OPT_ETA_MMSS] == "05:00"
+        assert v1[ATTR_OPT_SPEED] == 36
+        assert v1[ATTR_OPT_DIST_STOP] is not None
+        assert v1[ATTR_OPT_DIST_CUSTOM] is not None
+        assert "Klima" in v1["amenities_summary"]
+        assert "WiFi" in v1["amenities_summary"]
+
+    async def test_stop_route_filter(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        client.get_stop_arrivals = AsyncMock(
+            return_value=[
+                Arrival(route_code="500T", eta_minutes=3, kapino="C-1753"),
+                Arrival(route_code="14M", eta_minutes=7, kapino="A-001"),
+            ]
+        )
+        entry = _make_entry(
+            "stop_entry_filter",
+            {
+                CONF_FEED_TYPE: FEED_STOP,
+                CONF_STOP_CODE: "220602",
+                CONF_ROUTE_MODE: ROUTE_MODE_SELECTED,
+                CONF_SELECTED_ROUTES: ["500T"],
+            },
+        )
+        coord = IettEntryCoordinator(hass, entry, client)
+        data = await coord._async_update_data()
+
+        assert len(data["vehicles"]) == 1
+        assert data["vehicles"][0][ATTR_OPT_HATNO] == "500T"
 
 
 # ---------------------------------------------------------------------------
-# FEED_ROUTE_SCHEDULE
+# Route Coordinator (1b) Tests
 # ---------------------------------------------------------------------------
 
-class TestCoordinatorRouteSchedule:
-    async def test_returns_schedule(self, hass: MagicMock) -> None:
-        coord = IettCoordinator(hass, _entry_data(FEED_ROUTE_SCHEDULE))
-        mock_client = MagicMock()
-        mock_client.get_route_schedule = AsyncMock(return_value=SCHEDULE_JSON)
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            result = await coord._async_update_data()  # type: ignore[reportPrivateUsage]
-        assert result == SCHEDULE_JSON
-        mock_client.get_route_schedule.assert_called_once_with("500T")
+
+class TestRouteCoordinator:
+    async def test_route_update_and_depar_filter(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        client.get_route_buses = AsyncMock(
+            return_value=[
+                BusPosition(kapino="C-1753", route_code="500T", direction_letter="G"),
+                BusPosition(kapino="A-001", route_code="500T", direction_letter="D"),
+            ]
+        )
+        client.get_route_schedule = AsyncMock(
+            return_value=[
+                ScheduledDeparture(
+                    route_code="500T",
+                    route_variant="500T_G_D0",
+                    direction="G",
+                    departure_time="23:59",
+                ),
+                ScheduledDeparture(
+                    route_code="500T",
+                    route_variant="500T_G_D12",
+                    direction="G",
+                    departure_time="23:45",
+                ),
+                ScheduledDeparture(
+                    route_code="500T",
+                    route_variant="500T_D_D0",
+                    direction="D",
+                    departure_time="23:30",
+                ),
+            ]
+        )
+        client.get_announcements = AsyncMock(
+            return_value=[
+                Announcement(
+                    route_code="500T",
+                    type="Uyarı",
+                    message="Sefer gecikmeli",
+                )
+            ]
+        )
+
+        entry = _make_entry(
+            "route_entry_1",
+            {
+                CONF_FEED_TYPE: FEED_ROUTE,
+                CONF_ROUTE_CODE: "500T",
+                CONF_INCLUDE_ACTIVE_BUSES: True,
+                CONF_INCLUDE_SCHEDULE: True,
+                CONF_INCLUDE_ANNOUNCEMENTS: True,
+                CONF_DEPAR_MODE: DEPAR_MODE_BASE_ONLY,
+            },
+        )
+        coord = IettEntryCoordinator(hass, entry, client)
+        data = await coord._async_update_data()
+
+        assert data["feed_type"] == FEED_ROUTE
+        assert data["route_code"] == "500T"
+        assert data["active_buses_count"] == 2
+        assert data["gidis_count"] == 1
+        assert data["donus_count"] == 1
+        assert data["has_alert"] is True
+        assert data["announcement_count"] == 1
+        assert len(data["upcoming_departures"]) == 2  # D0 only
 
 
 # ---------------------------------------------------------------------------
-# FEED_ROUTE_ANNOUNCEMENTS
+# Vehicle Coordinator (1c) Tests
 # ---------------------------------------------------------------------------
 
-class TestCoordinatorAnnouncements:
-    async def test_returns_announcements(self, hass: MagicMock) -> None:
-        coord = IettCoordinator(hass, _entry_data(FEED_ROUTE_ANNOUNCEMENTS))
-        mock_client = MagicMock()
-        mock_client.get_announcements = AsyncMock(return_value=ANNOUNCEMENTS_JSON)
-        with (
-            patch("custom_components.iett.coordinator.async_get_clientsession"),
-            patch("custom_components.iett.coordinator.IettMiddleClient", return_value=mock_client),
-        ):
-            result = await coord._async_update_data()  # type: ignore[reportPrivateUsage]
-        assert result == ANNOUNCEMENTS_JSON
 
-    async def test_raises_on_unknown_feed(self, hass: MagicMock) -> None:
-        with pytest.raises(ValueError, match="Unknown feed type"):
-            IettCoordinator(hass, _entry_data("unknown_feed"))
+class TestVehicleCoordinator:
+    async def test_vehicle_online_mph_conversion(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        client.get_vehicle_status = AsyncMock(
+            return_value=BusPosition(
+                kapino="C-1753",
+                plate="34 HO 1234",
+                latitude=41.0450,
+                longitude=29.0020,
+                speed=36,
+                route_code="500T",
+                operator="İETT",
+                last_seen="14:30:00",
+            )
+        )
+        entry = _make_entry(
+            "veh_entry_1",
+            {
+                CONF_FEED_TYPE: FEED_VEHICLE,
+                CONF_KAPINO: "C-1753",
+                CONF_SPEED_UNIT: SPEED_UNIT_MPH,
+            },
+        )
+        coord = IettEntryCoordinator(hass, entry, client)
+        data = await coord._async_update_data()
+
+        assert data["feed_type"] == FEED_VEHICLE
+        assert data["kapino"] == "C-1753"
+        assert data["online"] is True
+        assert data["plate"] == "34 HO 1234"
+        assert data["speed"] == 22.4  # 36 km/h * 0.621371 = 22.4 mph
+        assert data["speed_unit"] == "mph"
+        assert data["route_code"] == "500T"
+
+    async def test_vehicle_offline(self, hass: MagicMock) -> None:
+        client = MagicMock()
+        client.get_vehicle_status = AsyncMock(return_value=None)
+        entry = _make_entry(
+            "veh_entry_offline",
+            {
+                CONF_FEED_TYPE: FEED_VEHICLE,
+                CONF_KAPINO: "A-001",
+                CONF_SPEED_UNIT: SPEED_UNIT_KMH,
+            },
+        )
+        coord = IettEntryCoordinator(hass, entry, client)
+        data = await coord._async_update_data()
+
+        assert data["feed_type"] == FEED_VEHICLE
+        assert data["kapino"] == "A-001"
+        assert data["online"] is False
+        assert data["plate"] is None
+        assert data["latitude"] is None
+        assert data["speed"] is None

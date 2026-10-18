@@ -1,74 +1,132 @@
-"""Constants for the IETT integration."""
+"""Constants for the İETT Home Assistant integration."""
+
 from __future__ import annotations
 
-from datetime import timedelta
+from typing import Final
 
-DOMAIN = "iett"
+DOMAIN: Final = "iett"
 
-# ── Feed type keys ──────────────────────────────────────────────────────────
-FEED_ALL_FLEET          = "all_fleet"
-FEED_ROUTE_FLEET        = "route_fleet"
-FEED_STOP_ARRIVALS      = "stop_arrivals"
-FEED_ROUTE_SCHEDULE     = "route_schedule"
-FEED_ROUTE_ANNOUNCEMENTS = "route_announcements"
+# Upstream Endpoints (100% Standalone — No external middleware required)
+IETT_SOAP_BASE: Final = "https://api.ibb.gov.tr/iett"
+IETT_REST_BASE: Final = "https://iett.istanbul"
+NTC_TOKEN_URL: Final = "https://ntcapi.iett.istanbul/oauth2/v2/auth"
+NTC_SERVICE_URL: Final = "https://ntcapi.iett.istanbul/service"
+TKM_TRAFFIC_INDEX_URL: Final = (
+    "https://tkmservices.ibb.gov.tr/web/api/TrafficData/v1/TrafficIndex_Sc1_Cont"
+)
 
-FEED_TYPES = [
-    FEED_ALL_FLEET,
-    FEED_ROUTE_FLEET,
-    FEED_STOP_ARRIVALS,
-    FEED_ROUTE_SCHEDULE,
-    FEED_ROUTE_ANNOUNCEMENTS,
+# Public Mobile App Credentials for NTCAPI
+NTC_CLIENT_ID: Final = "pLwqtobYHTBshBWRrEZdSWsngOywQvHa"
+NTC_CLIENT_SECRET: Final = "JERLUJgaZSygMTqoCtrhrVnvqeVGGVznktlwuOfHqmQTzjnC"
+NTC_SCOPE: Final = "VLCn2qErUdrr1Ehg0yxWObMW9krFb7RC service"
+NTC_YBS_USER: Final = "netuce"
+NTC_YBS_PASS: Final = "n1!t8c7M1"
+
+# Feed Types
+CONF_FEED_TYPE: Final = "feed_type"
+FEED_ROOT: Final = "root"  # 4 Kök Sensör (Genel, Avrupa, Anadolu Trafik + Filo Sayısı)
+FEED_STOP: Final = "stop"  # 1a: Durak Takibi
+FEED_ROUTE: Final = "route"  # 1b: Hat Takibi
+FEED_VEHICLE: Final = "vehicle"  # 1c: Tekil Araç Takibi (Strict Kapı No)
+FEED_ALL_FLEET: Final = "all_fleet"  # Legacy v1 migration constant
+
+# Legacy v1 Config Key (removed during v1->v2 migration)
+CONF_BASE_URL: Final = "base_url"
+
+# Common Config Keys
+CONF_SCAN_INTERVAL: Final = "scan_interval"
+CONF_SPEED_UNIT: Final = "speed_unit"
+SPEED_UNIT_KMH: Final = "kmh"
+SPEED_UNIT_MPH: Final = "mph"
+
+# 1a) Stop Config Keys
+CONF_STOP_CODE: Final = "stop_code"
+CONF_STOP_NAME: Final = "stop_name"
+CONF_STOP_LAT: Final = "stop_lat"
+CONF_STOP_LON: Final = "stop_lon"
+CONF_STOP_DIRECTION: Final = "stop_direction"
+CONF_STOP_DISTRICT: Final = "stop_district"
+CONF_STOP_TYPE: Final = "stop_type"
+CONF_STOP_SMART: Final = "stop_smart"
+
+CONF_ROUTE_MODE: Final = "route_mode"
+ROUTE_MODE_ALL: Final = "all"
+ROUTE_MODE_SELECTED: Final = "selected"
+CONF_SELECTED_ROUTES: Final = "selected_routes"
+
+CONF_VEHICLE_LIMIT_MODE: Final = "vehicle_limit_mode"
+LIMIT_MODE_ALL: Final = "all"
+LIMIT_MODE_NEAREST_N: Final = "nearest_n"
+CONF_VEHICLE_LIMIT_N: Final = "vehicle_limit_n"
+
+CONF_STOP_ATTRIBUTES: Final = "stop_attributes"
+ATTR_OPT_HATNO: Final = "hatno"
+ATTR_OPT_PLAKA: Final = "plaka"
+ATTR_OPT_ETA: Final = "eta"
+ATTR_OPT_ETA_MMSS: Final = "eta_mmss"
+ATTR_OPT_COORDS: Final = "coords"
+ATTR_OPT_COORDS_TRACKER: Final = "coords_tracker"
+ATTR_OPT_DIST_STOP: Final = "dist_stop"
+ATTR_OPT_DIST_CUSTOM: Final = "dist_custom"
+ATTR_OPT_SPEED: Final = "speed"
+ATTR_OPT_AMENITIES: Final = "amenities"
+
+ALL_STOP_ATTRIBUTE_OPTIONS: Final[list[str]] = [
+    ATTR_OPT_HATNO,
+    ATTR_OPT_PLAKA,
+    ATTR_OPT_ETA,
+    ATTR_OPT_ETA_MMSS,
+    ATTR_OPT_COORDS,
+    ATTR_OPT_COORDS_TRACKER,
+    ATTR_OPT_DIST_STOP,
+    ATTR_OPT_DIST_CUSTOM,
+    ATTR_OPT_SPEED,
+    ATTR_OPT_AMENITIES,
 ]
 
-# Human-readable labels for config flow UI
-FEED_LABELS: dict[str, str] = {
-    FEED_ALL_FLEET:          "All Fleet (entire Istanbul)",
-    FEED_ROUTE_FLEET:        "Route Fleet (buses on a specific line)",
-    FEED_STOP_ARRIVALS:      "Arrivals at Stop (real-time ETAs)",
-    FEED_ROUTE_SCHEDULE:     "Route Schedule (planned departures)",
-    FEED_ROUTE_ANNOUNCEMENTS: "Route Announcements (disruption alerts)",
-}
+DEFAULT_STOP_ATTRIBUTES: Final[list[str]] = [
+    ATTR_OPT_HATNO,
+    ATTR_OPT_PLAKA,
+    ATTR_OPT_ETA,
+    ATTR_OPT_ETA_MMSS,
+    ATTR_OPT_DIST_STOP,
+]
 
-# Coordinator update intervals
-UPDATE_INTERVALS: dict[str, timedelta] = {
-    FEED_ALL_FLEET:          timedelta(seconds=15),
-    FEED_ROUTE_FLEET:        timedelta(seconds=15),
-    FEED_STOP_ARRIVALS:      timedelta(seconds=30),
-    FEED_ROUTE_SCHEDULE:     timedelta(seconds=3600),
-    FEED_ROUTE_ANNOUNCEMENTS: timedelta(seconds=300),
-}
+CONF_CUSTOM_LAT: Final = "custom_lat"
+CONF_CUSTOM_LON: Final = "custom_lon"
 
-# ── Config entry keys ───────────────────────────────────────────────────────
-CONF_MIDDLE_URL  = "middle_url"
-CONF_FEED_TYPE   = "feed_type"
-CONF_HAT_KODU    = "hat_kodu"
-CONF_DCODE       = "dcode"
+# 1b) Route Config Keys
+CONF_ROUTE_CODE: Final = "route_code"
+CONF_ROUTE_NAME: Final = "route_name"
+CONF_INCLUDE_ACTIVE_BUSES: Final = "include_active_buses"
+CONF_INCLUDE_ANNOUNCEMENTS: Final = "include_announcements"
+CONF_INCLUDE_SCHEDULE: Final = "include_schedule"
 
-DEFAULT_MIDDLE_URL = "http://localhost:8000"
+CONF_DIRECTION_FILTER: Final = "direction_filter"
+DIR_FILTER_BOTH: Final = "both"
+DIR_FILTER_G: Final = "G"
+DIR_FILTER_D: Final = "D"
 
-# ── Sensor attribute data keys ──────────────────────────────────────────────
-DATA_KEY: dict[str, str] = {
-    FEED_ALL_FLEET:          "buses",
-    FEED_ROUTE_FLEET:        "buses",
-    FEED_STOP_ARRIVALS:      "arrivals",
-    FEED_ROUTE_SCHEDULE:     "departures",
-    FEED_ROUTE_ANNOUNCEMENTS: "announcements",
-}
+CONF_DEPAR_MODE: Final = "depar_mode"
+DEPAR_MODE_ALL: Final = "all"
+DEPAR_MODE_BASE_ONLY: Final = "base_only"
+DEPAR_MODE_SELECTED: Final = "selected"
+CONF_SELECTED_DEPARS: Final = "selected_depars"
 
-# Sensor icons (MDI)
-SENSOR_ICON: dict[str, str] = {
-    FEED_ALL_FLEET:          "mdi:bus-multiple",
-    FEED_ROUTE_FLEET:        "mdi:bus",
-    FEED_STOP_ARRIVALS:      "mdi:bus-clock",
-    FEED_ROUTE_SCHEDULE:     "mdi:timetable",
-    FEED_ROUTE_ANNOUNCEMENTS: "mdi:alert-circle-outline",
-}
+# 1c) Vehicle Config Keys
+CONF_KAPINO: Final = "kapino"
 
-# Sensor units of measurement
-SENSOR_UNIT: dict[str, str | None] = {
-    FEED_ALL_FLEET:          None,
-    FEED_ROUTE_FLEET:        None,
-    FEED_STOP_ARRIVALS:      "min",
-    FEED_ROUTE_SCHEDULE:     "min",
-    FEED_ROUTE_ANNOUNCEMENTS: None,
-}
+# Intervals & Cache TTLs (seconds)
+DEFAULT_SCAN_INTERVAL: Final = 45
+DEFAULT_ROOT_SCAN_INTERVAL: Final = 120
+MIN_SCAN_INTERVAL: Final = 20
+MAX_SCAN_INTERVAL: Final = 600
+
+FLEET_RAM_CACHE_TTL: Final = 60
+SCHEDULE_RAM_CACHE_TTL: Final = 3600
+ANNOUNCEMENT_RAM_CACHE_TTL: Final = 600
+
+# Services & Frontend
+SERVICE_REFRESH_FLEET: Final = "refresh_fleet"
+FRONTEND_STATIC_URL: Final = "/iett_static/iett-card.js"
+FRONTEND_VERSION: Final = "2.0.0"

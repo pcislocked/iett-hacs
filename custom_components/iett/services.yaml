@@ -1,0 +1,3 @@
+refresh_fleet:
+  name: Filoyu Yenile
+  description: İETT canlı filo verisini resmi SOAP servisinden derhal yeniden çeker ve RAM önbelleğini günceller.

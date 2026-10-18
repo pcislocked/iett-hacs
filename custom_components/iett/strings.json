@@ -2,26 +2,143 @@
   "config": {
     "step": {
       "user": {
-        "title": "Set up IETT",
-        "description": "Connect to your iett-middle instance",
-        "data": {
-          "middle_url": "iett-middle URL",
-          "feed_type": "Feed type"
+        "title": "İETT Takip Türü Seçin",
+        "description": "Eklemek istediğiniz takip profilini seçin. İstanbul Geneli Trafik ve Filo Boyutu sensörleri ilk kurulumda otomatik oluşturulacaktır.",
+        "menu_options": {
+          "root": "İstanbul Geneli Kök Sensörleri (3 Trafik + 1 Filo Boyutu)",
+          "stop": "a) Durak Ekle (Durak kodu gir / arat)",
+          "route": "b) Hat Ekle (Hat kodu gir / arat)",
+          "vehicle": "c) Tekil Araç Gir (Kapı No: X-NNNN strict format)"
         }
       },
-      "params": {
-        "title": "Feed parameters",
+      "stop": {
+        "title": "Durak Arama",
+        "description": "Takip etmek istediğiniz durağın 6 haneli kodunu (örn. 220602) veya adını (örn. Beşiktaş Meydan) girin.",
         "data": {
-          "hat_kodu": "Route code (e.g. 500T)",
-          "dcode": "Stop code (e.g. 220602)"
+          "stop_query": "Durak Kodu veya Adı"
+        }
+      },
+      "stop_select": {
+        "title": "Durak Seçimi",
+        "description": "Arama sonucunda bulunan duraklardan birini seçin:",
+        "data": {
+          "selected_stop": "Durak"
+        }
+      },
+      "stop_config": {
+        "title": "Durak Nitelik ve Filtre Ayarları",
+        "description": "{stop_name} ({stop_code}) durağı için takip parametrelerini ve oluşturulacak entity niteliklerini belirleyin.",
+        "data": {
+          "route_mode": "Hat Filtresi Türü",
+          "selected_routes": "Takip Edilecek Hatlar",
+          "vehicle_limit_mode": "Araç Miktarı Türü",
+          "vehicle_limit_n": "Takip Edilecek En Yakın Araç Sayısı (N)",
+          "stop_attributes": "Oluşturulacak Araç Nitelikleri",
+          "speed_unit": "Hız Birimi",
+          "custom_lat": "Özel Koordinat Enlem (Ev vb.)",
+          "custom_lon": "Özel Koordinat Boylam (Ev vb.)",
+          "scan_interval": "Yenileme Sıklığı (Saniye)"
+        }
+      },
+      "route": {
+        "title": "Hat Arama",
+        "description": "Takip etmek istediğiniz hat kodunu (örn. 500T, 14M) veya hat adını girin.",
+        "data": {
+          "route_query": "Hat Kodu veya Adı"
+        }
+      },
+      "route_select": {
+        "title": "Hat Seçimi",
+        "description": "Arama sonucunda bulunan hatlardan birini seçin:",
+        "data": {
+          "selected_route": "Hat"
+        }
+      },
+      "route_config": {
+        "title": "Hat Nitelik ve Sefer Ayarları",
+        "description": "{route_code} hattı için aktif araç, sefer saati ve duyuru takip parametrelerini belirleyin.",
+        "data": {
+          "include_active_buses": "Aktif Araç Sayısı Sensörü",
+          "include_announcements": "Hat Duyuruları Sensörü",
+          "include_schedule": "Planlanan Kalkış Saati Sensörü",
+          "direction_filter": "Kalkış Saati Yön Filtresi",
+          "depar_mode": "Depar / Varyant Filtresi",
+          "selected_depars": "Seçili Deparlar",
+          "scan_interval": "Yenileme Sıklığı (Saniye)"
+        }
+      },
+      "vehicle": {
+        "title": "Tekil Araç Takibi",
+        "description": "Takip etmek istediğiniz otobüsün kapı numarasını strict X-NNNN formatında girin (örn. C-1753, A-001). Plaka kabul edilmez.",
+        "data": {
+          "kapino": "Kapı Numarası (X-NNNN)",
+          "speed_unit": "Hız Birimi",
+          "scan_interval": "Yenileme Sıklığı (Saniye)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to iett-middle. Check the URL and make sure the service is running."
+      "invalid_stop_query": "Lütfen geçerli bir durak kodu veya adı girin.",
+      "no_stops_found": "Aramanızla eşleşen durak bulunamadı.",
+      "stop_fetch_failed": "Durak bilgileri İETT servisinden alınamadı.",
+      "search_failed": "Arama servisine ulaşılamadı.",
+      "invalid_route_query": "Lütfen geçerli bir hat kodu veya adı girin.",
+      "route_search_failed": "Hat arama servisine ulaşılamadı.",
+      "invalid_kapino_strict": "Kapı numarası X-NNNN formatında olmalıdır (örn. C-1753, A-001). Plaka kabul edilmez."
     },
     "abort": {
-      "already_configured": "This feed is already configured."
+      "already_configured": "Bu takip profili zaten eklenmiş."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "İETT Seçenekleri",
+        "description": "Takip parametrelerini güncelleyin.",
+        "data": {
+          "route_mode": "Hat Filtresi Türü",
+          "vehicle_limit_mode": "Araç Miktarı Türü",
+          "vehicle_limit_n": "Takip Edilecek En Yakın Araç Sayısı (N)",
+          "stop_attributes": "Oluşturulacak Araç Nitelikleri",
+          "speed_unit": "Hız Birimi",
+          "custom_lat": "Özel Koordinat Enlem (Ev vb.)",
+          "custom_lon": "Özel Koordinat Boylam (Ev vb.)",
+          "include_active_buses": "Aktif Araç Sayısı Sensörü",
+          "include_announcements": "Hat Duyuruları Sensörü",
+          "include_schedule": "Planlanan Kalkış Saati Sensörü",
+          "direction_filter": "Kalkış Saati Yön Filtresi",
+          "depar_mode": "Depar / Varyant Filtresi",
+          "scan_interval": "Yenileme Sıklığı (Saniye)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "route_mode": {
+      "options": {
+        "all": "Tüm Hatlar",
+        "selected": "Belli Hatlar"
+      }
+    },
+    "vehicle_limit_mode": {
+      "options": {
+        "nearest_n": "En Yakın N Sayıda Araç",
+        "all": "Tüm Araçlar"
+      }
+    },
+    "stop_attributes": {
+      "options": {
+        "hatno": "Hat No",
+        "plaka": "Plaka",
+        "eta": "ETA (Kalan Dakika)",
+        "eta_mmss": "Geleceği dk:sn ETA",
+        "coords": "Koordinatlar",
+        "coords_tracker": "Koordinatları Harita Takipçisi (device_tracker) Yap",
+        "dist_stop": "Durağa Mesafesi (metre)",
+        "dist_custom": "Özel Koordinata (Eve) Mesafesi (metre)",
+        "speed": "Hız",
+        "amenities": "Donanım (Klima, WiFi, USB, Engelli)"
+      }
     }
   }
 }

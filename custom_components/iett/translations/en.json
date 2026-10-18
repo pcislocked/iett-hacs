@@ -2,26 +2,143 @@
   "config": {
     "step": {
       "user": {
-        "title": "Set up IETT",
-        "description": "Connect to your iett-middle instance",
-        "data": {
-          "middle_url": "iett-middle URL",
-          "feed_type": "Feed type"
+        "title": "Select İETT Tracking Mode",
+        "description": "Choose a tracking profile to add. City-wide Traffic Index and Active Fleet Size sensors will be created automatically on first setup.",
+        "menu_options": {
+          "root": "Istanbul City-Wide Root Sensors (3 Traffic + 1 Fleet Size)",
+          "stop": "a) Add Stop (Enter/search stop code or name)",
+          "route": "b) Add Route (Enter/search route code or name)",
+          "vehicle": "c) Add Single Bus (Door No: strict X-NNNN format)"
         }
       },
-      "params": {
-        "title": "Feed parameters",
+      "stop": {
+        "title": "Search Stop",
+        "description": "Enter the 6-digit stop code (e.g. 220602) or stop name (e.g. Besiktas Meydan).",
         "data": {
-          "hat_kodu": "Route code (e.g. 500T)",
-          "dcode": "Stop code (e.g. 220602)"
+          "stop_query": "Stop Code or Name"
+        }
+      },
+      "stop_select": {
+        "title": "Select Stop",
+        "description": "Select a stop from search results:",
+        "data": {
+          "selected_stop": "Stop"
+        }
+      },
+      "stop_config": {
+        "title": "Stop Attributes & Filters",
+        "description": "Configure tracking parameters and entity attributes for {stop_name} ({stop_code}).",
+        "data": {
+          "route_mode": "Route Filter Mode",
+          "selected_routes": "Monitored Routes",
+          "vehicle_limit_mode": "Vehicle Limit Mode",
+          "vehicle_limit_n": "Nearest Vehicles to Track (N)",
+          "stop_attributes": "Vehicle Attributes to Create",
+          "speed_unit": "Speed Unit",
+          "custom_lat": "Custom Target Latitude (Home etc.)",
+          "custom_lon": "Custom Target Longitude (Home etc.)",
+          "scan_interval": "Update Interval (Seconds)"
+        }
+      },
+      "route": {
+        "title": "Search Route",
+        "description": "Enter the route code (e.g. 500T, 14M) or name.",
+        "data": {
+          "route_query": "Route Code or Name"
+        }
+      },
+      "route_select": {
+        "title": "Select Route",
+        "description": "Select a route from search results:",
+        "data": {
+          "selected_route": "Route"
+        }
+      },
+      "route_config": {
+        "title": "Route Options & Departures",
+        "description": "Configure active buses, scheduled departures, and disruption announcements for {route_code}.",
+        "data": {
+          "include_active_buses": "Active Buses Sensor",
+          "include_announcements": "Disruption Announcements Sensor",
+          "include_schedule": "Next Timetable Departure Sensor",
+          "direction_filter": "Departure Direction Filter",
+          "depar_mode": "Pattern / Depar Filter",
+          "selected_depars": "Selected Depars",
+          "scan_interval": "Update Interval (Seconds)"
+        }
+      },
+      "vehicle": {
+        "title": "Single Bus Tracking",
+        "description": "Enter the bus door number in strict X-NNNN format (e.g. C-1753, A-001). License plates are not accepted.",
+        "data": {
+          "kapino": "Door Number (X-NNNN)",
+          "speed_unit": "Speed Unit",
+          "scan_interval": "Update Interval (Seconds)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to iett-middle. Check the URL and make sure the service is running."
+      "invalid_stop_query": "Please enter a valid stop code or name.",
+      "no_stops_found": "No stops found matching your search.",
+      "stop_fetch_failed": "Failed to fetch stop data from İETT services.",
+      "search_failed": "Search service is temporarily unavailable.",
+      "invalid_route_query": "Please enter a valid route code or name.",
+      "route_search_failed": "Route search service is temporarily unavailable.",
+      "invalid_kapino_strict": "Door number must follow strict X-NNNN format (e.g. C-1753, A-001). License plates are not accepted."
     },
     "abort": {
-      "already_configured": "This feed is already configured."
+      "already_configured": "This tracking profile is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "İETT Options",
+        "description": "Update tracking parameters.",
+        "data": {
+          "route_mode": "Route Filter Mode",
+          "vehicle_limit_mode": "Vehicle Limit Mode",
+          "vehicle_limit_n": "Nearest Vehicles to Track (N)",
+          "stop_attributes": "Vehicle Attributes to Create",
+          "speed_unit": "Speed Unit",
+          "custom_lat": "Custom Target Latitude (Home etc.)",
+          "custom_lon": "Custom Target Longitude (Home etc.)",
+          "include_active_buses": "Active Buses Sensor",
+          "include_announcements": "Disruption Announcements Sensor",
+          "include_schedule": "Next Timetable Departure Sensor",
+          "direction_filter": "Departure Direction Filter",
+          "depar_mode": "Pattern / Depar Filter",
+          "scan_interval": "Update Interval (Seconds)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "route_mode": {
+      "options": {
+        "all": "All Routes",
+        "selected": "Selected Routes"
+      }
+    },
+    "vehicle_limit_mode": {
+      "options": {
+        "nearest_n": "Nearest N Vehicles",
+        "all": "All Approaching Vehicles"
+      }
+    },
+    "stop_attributes": {
+      "options": {
+        "hatno": "Route Number",
+        "plaka": "License Plate",
+        "eta": "ETA (Minutes)",
+        "eta_mmss": "Arrival mm:ss Countdown",
+        "coords": "Coordinates",
+        "coords_tracker": "Create GPS Device Tracker (device_tracker)",
+        "dist_stop": "Distance to Stop (meters)",
+        "dist_custom": "Distance to Target/Home (meters)",
+        "speed": "Speed",
+        "amenities": "Amenities (AC, WiFi, USB, Accessibility)"
+      }
     }
   }
 }
