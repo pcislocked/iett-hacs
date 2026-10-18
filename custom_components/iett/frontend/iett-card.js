@@ -46,6 +46,10 @@ class IettCard extends HTMLElement {
     };
   }
 
+  getCardSize() {
+    return 3;
+  }
+
   setConfig(config) {
     if (!config) throw new Error("Geçersiz kart konfigürasyonu");
     const mode = config.mode || (config.route_code ? "route" : config.kapino ? "vehicle" : "stop");
@@ -663,6 +667,9 @@ if (!customElements.get("iett-card")) {
 if (!customElements.get("iett-card-editor")) {
   customElements.define("iett-card-editor", IettCardEditor);
 }
+
+// Notify Lovelace to rebuild cards that rendered before the script finished loading
+window.dispatchEvent(new CustomEvent("ll-rebuild"));
 
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card && card.type === "iett-card")) {
