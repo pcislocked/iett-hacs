@@ -12,7 +12,16 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    ATTR_OPT_AMENITIES,
+    ATTR_OPT_COORDS,
     ATTR_OPT_COORDS_TRACKER,
+    ATTR_OPT_DIST_CUSTOM,
+    ATTR_OPT_DIST_STOP,
+    ATTR_OPT_ETA,
+    ATTR_OPT_ETA_MMSS,
+    ATTR_OPT_HATNO,
+    ATTR_OPT_PLAKA,
+    ATTR_OPT_SPEED,
     CONF_FEED_TYPE,
     CONF_KAPINO,
     CONF_STOP_ATTRIBUTES,
@@ -174,4 +183,36 @@ class IettStopSlotTrackerEntity(CoordinatorEntity[IettEntryCoordinator], Tracker
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         veh = self._get_vehicle()
-        return veh or {}
+        if not veh:
+            return {}
+        selected = set(self.entry.data.get(CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES))
+        out: dict[str, Any] = {
+            "slot": self.slot,
+            "route_code": veh.get("route_code"),
+            "destination": veh.get("destination"),
+            "kapino": veh.get("kapino"),
+        }
+        if ATTR_OPT_HATNO in selected:
+            out[ATTR_OPT_HATNO] = veh.get(ATTR_OPT_HATNO)
+        if ATTR_OPT_PLAKA in selected:
+            out[ATTR_OPT_PLAKA] = veh.get(ATTR_OPT_PLAKA)
+        if ATTR_OPT_ETA in selected:
+            out[ATTR_OPT_ETA] = veh.get(ATTR_OPT_ETA)
+            out["eta_raw"] = veh.get("eta_raw")
+        if ATTR_OPT_ETA_MMSS in selected:
+            out[ATTR_OPT_ETA_MMSS] = veh.get(ATTR_OPT_ETA_MMSS)
+        if ATTR_OPT_COORDS in selected:
+            out[ATTR_OPT_COORDS] = veh.get(ATTR_OPT_COORDS)
+            out["latitude"] = veh.get("latitude")
+            out["longitude"] = veh.get("longitude")
+        if ATTR_OPT_DIST_STOP in selected:
+            out[ATTR_OPT_DIST_STOP] = veh.get(ATTR_OPT_DIST_STOP)
+        if ATTR_OPT_DIST_CUSTOM in selected:
+            out[ATTR_OPT_DIST_CUSTOM] = veh.get(ATTR_OPT_DIST_CUSTOM)
+        if ATTR_OPT_SPEED in selected:
+            out[ATTR_OPT_SPEED] = veh.get(ATTR_OPT_SPEED)
+            out["speed_unit"] = veh.get("speed_unit")
+        if ATTR_OPT_AMENITIES in selected:
+            out["amenities"] = veh.get("amenities")
+            out["amenities_summary"] = veh.get("amenities_summary")
+        return out

@@ -5,6 +5,7 @@ All models tolerate unknown extra fields from upstream payloads.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -38,6 +39,23 @@ class RootStatus:
         }
 
 
+def _parse_amenity(val: Any) -> bool | None:
+    """Safely parse boolean amenity flags from heterogeneous upstream types."""
+    if val is None:
+        return None
+    if isinstance(val, bool):
+        return val
+    s = str(val).strip().lower()
+    if s in ("1", "true", "var", "evet", "yes"):
+        return True
+    if s in ("0", "false", "yok", "hayir", "hayır", "no"):
+        return False
+    try:
+        return bool(int(s))
+    except (ValueError, TypeError):
+        return None
+
+
 @dataclass(slots=True)
 class Amenities:
     """Bus equipment and accessibility features."""
@@ -52,10 +70,10 @@ class Amenities:
         if not data:
             return cls()
         return cls(
-            usb=bool(data["usb"]) if data.get("usb") is not None else None,
-            wifi=bool(data["wifi"]) if data.get("wifi") is not None else None,
-            ac=bool(data["ac"]) if data.get("ac") is not None else None,
-            accessible=bool(data["accessible"]) if data.get("accessible") is not None else None,
+            usb=_parse_amenity(data.get("usb")),
+            wifi=_parse_amenity(data.get("wifi")),
+            ac=_parse_amenity(data.get("ac") or data.get("klima")),
+            accessible=_parse_amenity(data.get("accessible") or data.get("engelli")),
         )
 
     def to_dict(self) -> dict[str, bool | None]:
@@ -102,9 +120,12 @@ class Arrival:
         except (ValueError, TypeError):
             speed_int = None
 
+        raw_dest = str(data.get("destination", "")).strip()
+        cleaned_dest = re.sub(r"\s+", " ", raw_dest)
+
         return cls(
             route_code=str(data.get("route_code", "")).strip(),
-            destination=str(data.get("destination", "")).strip(),
+            destination=cleaned_dest,
             eta_minutes=eta_minutes_int,
             eta_raw=eta_raw,
             kapino=normalize_kapino(data.get("kapino")),

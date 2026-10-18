@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
+from typing import Any
+from unittest.mock import patch
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from aioresponses import CallbackResult, aioresponses
 
 from custom_components.iett.client import IettApiError, IettClient
 from custom_components.iett.const import (
@@ -335,3 +338,85 @@ class TestDataclassTolerantParsing:
         bus = BusPosition.from_dict(raw_bus)
         assert bus.kapino == "C-1753"
         assert bus.speed == 35
+
+
+class TestClientResilience:
+    """Tests for concurrency, offloading, and malformed upstream payloads."""
+
+    async def test_client_ntcapi_concurrent_401_single_token_refresh(
+        self, client: IettClient
+    ) -> None:
+        """Verify concurrent 401s do not trigger duplicate token refreshes."""
+        token_requests = 0
+
+        def token_callback(url: Any, **kwargs: Any) -> CallbackResult:
+            nonlocal token_requests
+            token_requests += 1
+            return CallbackResult(
+                status=200,
+                payload={"access_token": f"token_{token_requests}", "expires_in": 3600},
+            )
+
+        def service_callback(url: Any, **kwargs: Any) -> CallbackResult:
+            headers = kwargs.get("headers", {})
+            auth = headers.get("Authorization", "")
+            if auth == "Bearer token_1":
+                return CallbackResult(status=401)
+            if auth == "Bearer token_2":
+                return CallbackResult(status=200, payload=[{"status": "ok"}])
+            return CallbackResult(status=400)
+
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, callback=token_callback, repeat=True)
+            m.post(NTC_SERVICE_RE, callback=service_callback, repeat=True)
+
+            res1, res2 = await asyncio.gather(
+                client._ntc_call("service1", {"foo": "bar"}),
+                client._ntc_call("service2", {"baz": "qux"}),
+            )
+
+            assert res1 == [{"status": "ok"}]
+            assert res2 == [{"status": "ok"}]
+            # Exactly 2 token requests: initial token_1, then refreshed token_2 (not 3!)
+            assert token_requests == 2
+
+    async def test_client_fleet_parsing_uses_to_thread(self, client: IettClient) -> None:
+        """Verify ensure_fleet_fresh offloads XML/JSON parsing to asyncio.to_thread."""
+        with patch("asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread:
+            with aioresponses() as m:
+                m.post(SOAP_FLEET_RE, body=SOAP_FLEET_XML, headers={"Content-Type": "text/xml"})
+                count = await client.ensure_fleet_fresh(force=True)
+                assert count == 2
+                assert mock_to_thread.called
+                assert mock_to_thread.call_args[0][0].__name__ == "_parse_fleet_records"
+
+    async def test_client_stop_arrivals_malformed_amenities_resilience(
+        self, client: IettClient
+    ) -> None:
+        """Verify malformed amenity flags (VAR, true, None, empty) do not cause crash."""
+        payload = [
+            {
+                "hatkodu": "500T",
+                "hatadi": "VADİ -  TAKSİM",
+                "dakika": 5,
+                "saat": "12:00",
+                "kapino": "C-1753",
+                "klima": "VAR",
+                "wifi": "true",
+                "usb": "",
+                "engelli": None,
+            }
+        ]
+        with aioresponses() as m:
+            m.post(NTC_TOKEN_RE, payload=NTC_AUTH_JSON)
+            m.post(NTC_SERVICE_RE, payload=payload)
+
+            arrivals = await client.get_stop_arrivals("301341")
+            assert len(arrivals) == 1
+            arr = arrivals[0]
+            assert arr.route_code == "500T"
+            assert arr.destination == "VADİ - TAKSİM"
+            assert arr.amenities.ac is True
+            assert arr.amenities.wifi is True
+            assert arr.amenities.usb is None
+            assert arr.amenities.accessible is None

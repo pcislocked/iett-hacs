@@ -51,29 +51,65 @@ class IettCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config) throw new Error("Geçersiz kart konfigürasyonu");
-    const mode = config.mode || (config.route_code ? "route" : config.kapino ? "vehicle" : "stop");
-    if (mode === "stop" && !config.stop_code && !config.entity) {
-      throw new Error("Durak modu için stop_code veya entity gereklidir");
+    if (!config || typeof config !== "object") {
+      throw new Error("Geçersiz kart konfigürasyonu");
     }
-    if (mode === "route" && !config.route_code && !config.entity) {
-      throw new Error("Hat modu için route_code veya entity gereklidir");
+
+    // Resolve aliases for maximum compatibility (v1 configs, mobile, alternative key names)
+    const stopCode =
+      config.stop_code || config.dcode || config.durak_kodu || config.durak || config.stop;
+    const routeCode =
+      config.route_code || config.hat_kodu || config.hat || config.line;
+    const kapino =
+      config.kapino ||
+      config.door_number ||
+      config.kapi_no ||
+      config.kapi ||
+      config.door_no ||
+      config.vehicle;
+    const entity = config.entity;
+
+    let mode = config.mode;
+    if (!mode) {
+      if (routeCode) mode = "route";
+      else if (kapino) mode = "vehicle";
+      else if (stopCode) mode = "stop";
+      else if (entity) {
+        if (entity.includes("hat_") || entity.includes("route")) mode = "route";
+        else if (entity.includes("arac_") || entity.includes("vehicle")) mode = "vehicle";
+        else mode = "stop";
+      } else {
+        mode = "stop";
+      }
     }
-    if (mode === "vehicle" && !config.kapino && !config.entity) {
-      throw new Error("Araç modu için kapino veya entity gereklidir");
-    }
+
     this._config = {
-      mode,
       theme: "led",
       time_format: "relative",
       refresh_interval: 20,
       max_items: 8,
       ...config,
+      mode,
+      ...(stopCode ? { stop_code: String(stopCode).trim() } : {}),
+      ...(routeCode ? { route_code: String(routeCode).trim().toUpperCase() } : {}),
+      ...(kapino ? { kapino: String(kapino).trim().toUpperCase() } : {}),
     };
+
+    // If target identifier is missing during card creation/editing, show helpful prompt instead of Lovelace error crash
+    if (mode === "stop" && !this._config.stop_code && !this._config.entity) {
+      this._error = "Durak kodu (stop_code) veya İETT sensörü belirtiniz.";
+    } else if (mode === "route" && !this._config.route_code && !this._config.entity) {
+      this._error = "Hat kodu (route_code) veya İETT sensörü belirtiniz.";
+    } else if (mode === "vehicle" && !this._config.kapino && !this._config.entity) {
+      this._error = "Araç kapı no (kapino) veya İETT sensörü belirtiniz.";
+    } else {
+      this._error = null;
+    }
+
     this._render();
     if (this.isConnected) {
       this._startTimer();
-      if (this._hass) {
+      if (this._hass && !this._error) {
         this._fetchData();
       }
     }
@@ -255,7 +291,7 @@ class IettCard extends HTMLElement {
           letter-spacing: 1px;
         }
         ha-card.theme-led .badge-route {
-          background: #ff5555;
+          background: #e03131;
           color: #fff;
           font-weight: bold;
         }
@@ -288,6 +324,26 @@ class IettCard extends HTMLElement {
         ha-card.theme-modern .eta-pulsing {
           background: #dcfce7;
           color: #15803d;
+        }
+        /* Theme: Home Assistant Native */
+        ha-card.theme-native {
+          background: var(--ha-card-background, var(--card-background-color, #ffffff));
+          color: var(--primary-text-color, #212121);
+          border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        }
+        ha-card.theme-native .badge-route {
+          background: var(--primary-color, #03a9f4);
+          color: var(--text-primary-color, #ffffff);
+          border-radius: 4px;
+        }
+        ha-card.theme-native .eta-pill {
+          background: var(--secondary-background-color, #e0e0e0);
+          color: var(--primary-text-color, #212121);
+          border-radius: 6px;
+        }
+        ha-card.theme-native .eta-pulsing {
+          background: var(--accent-color, #ff9800);
+          color: var(--text-primary-color, #ffffff);
         }
         /* Common Layout */
         .card-header {
@@ -393,6 +449,12 @@ class IettCard extends HTMLElement {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .eta-pulsing {
+            animation: none !important;
+            opacity: 1 !important;
+          }
+        }
       </style>
     `;
 
@@ -472,7 +534,7 @@ class IettCard extends HTMLElement {
           const pillTitle = absText ? `Tahmini Varış Saati: ${escapeHtml(absText)}` : "";
 
           return `
-            <div class="arrival-row">
+            <div class="arrival-row" role="listitem">
               <div class="arrival-left">
                 <span class="badge-route">${escapeHtml(arr.route_code)}</span>
                 <div class="arrival-info">
@@ -501,8 +563,10 @@ class IettCard extends HTMLElement {
         </div>
         ${data?.direction ? `<span class="header-badge">${escapeHtml(data.direction)}</span>` : ""}
       </div>
-      <div class="card-content">
-        ${rowsHtml}
+      <div class="card-content" role="region" aria-label="Canlı Sefer Listesi" aria-live="polite" aria-atomic="false">
+        <div class="arrival-list" role="list">
+          ${rowsHtml}
+        </div>
       </div>
     `;
   }
@@ -537,7 +601,7 @@ class IettCard extends HTMLElement {
         </div>
         <span class="header-badge">${escapeHtml(String(activeCount))} Araç Sahada</span>
       </div>
-      <div class="card-content">
+      <div class="card-content" role="region" aria-label="Hat Canlı Durumu" aria-live="polite" aria-atomic="false">
         ${depHtml}
         ${annHtml}
       </div>
@@ -558,7 +622,7 @@ class IettCard extends HTMLElement {
         </div>
         ${veh?.plate ? `<span class="header-badge" style="font-weight: bold; border: 1px solid rgba(255,255,255,0.2);">TR ${escapeHtml(veh.plate)}</span>` : ""}
       </div>
-      <div class="card-content">
+      <div class="card-content" role="region" aria-label="Araç Canlı Durumu" aria-live="polite" aria-atomic="false">
         ${online && veh ? `
           <div class="arrival-row">
             <div>Aktif Hat: <strong>${escapeHtml(veh.route_code || "Boşta")}</strong></div>
@@ -613,7 +677,7 @@ class IettCardEditor extends HTMLElement {
         }
       </style>
       <div class="form-row">
-        <label>Mod</label>
+        <label for="mode">Mod</label>
         <select id="mode">
           <option value="stop" ${this._config.mode === "stop" ? "selected" : ""}>Durak Tabelası</option>
           <option value="route" ${this._config.mode === "route" ? "selected" : ""}>Hat Durumu</option>
@@ -621,19 +685,19 @@ class IettCardEditor extends HTMLElement {
         </select>
       </div>
       <div class="form-row">
-        <label>Durak Kodu (stop_code)</label>
+        <label for="stop_code">Durak Kodu (stop_code)</label>
         <input type="text" id="stop_code" value="${escapeHtml(this._config.stop_code || "")}" placeholder="Örn: 301341" />
       </div>
       <div class="form-row">
-        <label>Hat Kodu (route_code)</label>
+        <label for="route_code">Hat Kodu (route_code)</label>
         <input type="text" id="route_code" value="${escapeHtml(this._config.route_code || "")}" placeholder="Örn: 500T" />
       </div>
       <div class="form-row">
-        <label>Kapı No (kapino)</label>
+        <label for="kapino">Kapı No (kapino)</label>
         <input type="text" id="kapino" value="${escapeHtml(this._config.kapino || "")}" placeholder="Örn: C-1753" />
       </div>
       <div class="form-row">
-        <label>Zaman Gösterimi (time_format)</label>
+        <label for="time_format">Zaman Gösterimi (time_format)</label>
         <select id="time_format">
           <option value="relative" ${!this._config.time_format || this._config.time_format === "relative" ? "selected" : ""}>Kalan Süre — Bağıl (Örn: 4 dk)</option>
           <option value="absolute" ${this._config.time_format === "absolute" ? "selected" : ""}>Varış Saati — Mutlak (Örn: 14:35)</option>
@@ -641,7 +705,7 @@ class IettCardEditor extends HTMLElement {
         </select>
       </div>
       <div class="form-row">
-        <label>Tema</label>
+        <label for="theme">Tema</label>
         <select id="theme">
           <option value="led" ${this._config.theme === "led" ? "selected" : ""}>Akıllı Durak (LED)</option>
           <option value="modern" ${this._config.theme === "modern" ? "selected" : ""}>Modern</option>
@@ -649,29 +713,32 @@ class IettCardEditor extends HTMLElement {
         </select>
       </div>
       <div class="form-row">
-        <label>Yenileme Süresi (Saniye)</label>
+        <label for="refresh_interval">Yenileme Süresi (Saniye)</label>
         <input type="number" id="refresh_interval" value="${escapeHtml(this._config.refresh_interval || 20)}" min="10" max="120" />
       </div>
     `;
 
     const inputs = this.shadowRoot.querySelectorAll("input, select");
-    inputs.forEach((input) => {
-      input.addEventListener("change", () => {
-        const newConfig = { ...this._config };
-        inputs.forEach((i) => {
-          if (i.value) {
-            newConfig[i.id] = i.type === "number" ? Number(i.value) : i.value;
-          } else {
-            delete newConfig[i.id];
-          }
-        });
-        const event = new CustomEvent("config-changed", {
-          detail: { config: newConfig },
-          bubbles: true,
-          composed: true,
-        });
-        this.dispatchEvent(event);
+    const updateConfig = () => {
+      const newConfig = { ...this._config };
+      inputs.forEach((i) => {
+        if (i.value) {
+          newConfig[i.id] = i.type === "number" ? Number(i.value) : i.value;
+        } else {
+          delete newConfig[i.id];
+        }
       });
+      const event = new CustomEvent("config-changed", {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(event);
+    };
+
+    inputs.forEach((input) => {
+      input.addEventListener("change", updateConfig);
+      input.addEventListener("input", updateConfig);
     });
   }
 }
@@ -702,9 +769,9 @@ if (typeof requestAnimationFrame === "function") {
 setTimeout(_notifyLovelace, 200);
 
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card && card.type === "iett-card")) {
+if (!window.customCards.some((card) => card && (card.type === "custom:iett-card" || card.type === "iett-card"))) {
   window.customCards.push({
-    type: "iett-card",
+    type: "custom:iett-card",
     name: "İETT Canlı Kartı",
     description: "Sensörsüz on-demand çalışan İETT Akıllı Durak ve Hat kartı",
     preview: true,

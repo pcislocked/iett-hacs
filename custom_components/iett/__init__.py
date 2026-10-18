@@ -10,7 +10,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import CoreState, HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .client import IettClient
@@ -166,9 +166,23 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
             registered = await _async_register_lovelace_resource(hass, versioned_url)
             if registered:
                 domain_data["lovelace_resource_registered"] = True
-            elif hasattr(hass, "bus"):
-                # If Lovelace was not initialized yet, retry once when Home Assistant has started
-                if not domain_data.get("lovelace_start_listener"):
+            else:
+                is_running = (
+                    getattr(hass, "is_running", False) is True
+                    or getattr(hass, "state", None) == CoreState.running
+                )
+                if is_running:
+                    # HA already running — EVENT_HOMEASSISTANT_START will never fire.
+                    # Retry in a background task after yielding to let Lovelace resource collection finish.
+                    async def _retry_registration() -> None:
+                        await asyncio.sleep(0.5)
+                        if not domain_data.get("lovelace_resource_registered"):
+                            if await _async_register_lovelace_resource(hass, versioned_url):
+                                domain_data["lovelace_resource_registered"] = True
+
+                    hass.async_create_task(_retry_registration())
+                elif hasattr(hass, "bus") and not domain_data.get("lovelace_start_listener"):
+                    # Lovelace not initialized yet; retry when Home Assistant has started
                     domain_data["lovelace_start_listener"] = True
 
                     async def _on_ha_start(_event: Any) -> None:
