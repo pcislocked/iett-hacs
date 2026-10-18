@@ -80,14 +80,18 @@ class IettCard extends HTMLElement {
   }
 
   set hass(hass) {
-    const firstHass = !this._hass;
-    this._hass = hass;
-    if (firstHass && this.isConnected) {
-      this._fetchData();
-    } else if (this._config && this._config.entity) {
-      // If bound to entity, sync from entity state and re-render
-      this._syncFromEntity();
-      this._render();
+    try {
+      const firstHass = !this._hass;
+      this._hass = hass;
+      if (firstHass && this.isConnected) {
+        this._fetchData();
+      } else if (this._config && this._config.entity) {
+        // If bound to entity, sync from entity state and re-render
+        this._syncFromEntity();
+        this._render();
+      }
+    } catch (err) {
+      console.warn("iett-card set hass error:", err);
     }
   }
 
@@ -221,8 +225,9 @@ class IettCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
-    const theme = this._config?.theme || "led";
-    const mode = this._config?.mode || "stop";
+    try {
+      const theme = this._config?.theme || "led";
+      const mode = this._config?.mode || "stop";
 
     const styles = `
       <style>
@@ -408,13 +413,22 @@ class IettCard extends HTMLElement {
         ${content}
       </ha-card>
     `;
+    } catch (err) {
+      console.error("iett-card render error:", err);
+      this.shadowRoot.innerHTML = `
+        <ha-card style="padding: 16px; color: var(--error-color, #ef4444); background: var(--ha-card-background, #1e1e24); border-radius: var(--ha-card-border-radius, 12px);">
+          ⚠️ Kart görüntüleme hatası: ${escapeHtml(err.message || String(err))}
+        </ha-card>
+      `;
+    }
   }
 
   _renderStopContent() {
     const data = this._data;
     const stopName = data?.stop_name || this._config.title || `Durak ${this._config.stop_code || ""}`;
     const stopCode = data?.stop_code || this._config.stop_code || "";
-    const arrivals = data?.arrivals || [];
+    const rawArrivals = data?.arrivals;
+    const arrivals = Array.isArray(rawArrivals) ? rawArrivals.filter(Boolean) : [];
 
     let rowsHtml = "";
     const timeFormat = this._config.time_format || "relative";
@@ -423,6 +437,7 @@ class IettCard extends HTMLElement {
     } else {
       rowsHtml = arrivals
         .map((arr) => {
+          if (!arr) return "";
           const isPulse = arr.eta_minutes !== null && arr.eta_minutes <= 3;
           let relText = null;
           if (arr.eta_minutes !== null && arr.eta_minutes !== undefined) {
@@ -447,7 +462,7 @@ class IettCard extends HTMLElement {
           const distText = arr.distance_to_stop_m ? `${arr.distance_to_stop_m}m` : "";
           const kapiPlate = [arr.kapino, arr.plate].filter(Boolean).join(" • ");
 
-          const am = arr.amenities || {};
+          const am = (arr && typeof arr.amenities === "object" && arr.amenities !== null) ? arr.amenities : {};
           const amIcons = [];
           if (am.ac) amIcons.push("❄️");
           if (am.wifi) amIcons.push("📶");
@@ -669,7 +684,22 @@ if (!customElements.get("iett-card-editor")) {
 }
 
 // Notify Lovelace to rebuild cards that rendered before the script finished loading
-window.dispatchEvent(new CustomEvent("ll-rebuild"));
+function _notifyLovelace() {
+  window.dispatchEvent(new CustomEvent("ll-rebuild", { bubbles: true, composed: true }));
+  window.dispatchEvent(new CustomEvent("ll-custom", { bubbles: true, composed: true }));
+  try {
+    document.querySelectorAll("hui-error-card, hui-card").forEach((el) => {
+      el.dispatchEvent(new CustomEvent("ll-rebuild", { bubbles: true, composed: true }));
+    });
+  } catch (_e) {
+    // ignore
+  }
+}
+_notifyLovelace();
+if (typeof requestAnimationFrame === "function") {
+  requestAnimationFrame(_notifyLovelace);
+}
+setTimeout(_notifyLovelace, 200);
 
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card && card.type === "iett-card")) {
