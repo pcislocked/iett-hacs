@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "İETT Takip Türü Seçin",
-        "description": "Eklemek istediğiniz takip profilini seçin. İstanbul Geneli Trafik ve Filo Boyutu sensörleri ilk kurulumda otomatik oluşturulacaktır.",
+        "description": "Eklemek istediğiniz takip profilini seçin. İstanbul Geneli Trafik (Genel, Avrupa, Anadolu) ve Aktif Filo Boyutu (sadece araç sayısı) sensörleri ilk kurulumda otomatik oluşturulacaktır.\n\nİpucu: Sensör oluşturmadan sadece Dashboard'da canlı durak/hat tabelası görmek istiyorsanız kurulumdan sonra doğrudan `custom:iett-card` Lovelace kartını ekleyebilirsiniz.",
         "menu_options": {
           "root": "İstanbul Geneli Kök Sensörleri (3 Trafik + 1 Filo Boyutu)",
           "stop": "a) Durak Ekle (Durak kodu gir / arat)",
@@ -13,31 +13,48 @@
       },
       "stop": {
         "title": "Durak Arama",
-        "description": "Takip etmek istediğiniz durağın 6 haneli kodunu (örn. 220602) veya adını (örn. Beşiktaş Meydan) girin.",
+        "description": "Takip etmek istediğiniz durağın 6 haneli kodunu (örn. 220602) veya adını (örn. Beşiktaş Meydan, Ahmet Mithat Efendi) girin.",
         "data": {
           "stop_query": "Durak Kodu veya Adı"
+        },
+        "data_description": {
+          "stop_query": "6 haneli durak kodunu biliyorsanız doğrudan girin; bilmiyorsanız durak adını yazın, sonraki adımda yön bilgisiyle birlikte seçim listesi gelecektir."
         }
       },
       "stop_select": {
-        "title": "Durak Seçimi",
-        "description": "Arama sonucunda bulunan duraklardan birini seçin:",
+        "title": "Durak ve Yön Seçimi",
+        "description": "Aynı isimli duraklar yolun karşılıklı iki yönü için ayrı kodlara sahiptir. Parantez içindeki yön bilgisini (➔ Yön • İlçe) kontrol ederek doğru durağı seçin:",
         "data": {
-          "selected_stop": "Durak"
+          "selected_stop": "Durak (Kod - Ad - Yön)"
+        },
+        "data_description": {
+          "selected_stop": "Ok işareti (➔) otobüslerin bu duraktan geçerken hangi istikamete doğru gittiğini gösterir."
         }
       },
       "stop_config": {
         "title": "Durak Nitelik ve Filtre Ayarları",
-        "description": "{stop_name} ({stop_code}) durağı için takip parametrelerini ve oluşturulacak entity niteliklerini belirleyin.",
+        "description": "**{stop_name}** (`{stop_code}` • Yön: **{stop_direction}**) durağı için takip filtrelerini ve oluşturulacak Home Assistant sensörlerini seçin.",
         "data": {
           "route_mode": "Hat Filtresi Türü",
           "selected_routes": "Takip Edilecek Hatlar",
           "vehicle_limit_mode": "Araç Miktarı Türü",
           "vehicle_limit_n": "Takip Edilecek En Yakın Araç Sayısı (N)",
-          "stop_attributes": "Oluşturulacak Araç Nitelikleri",
+          "stop_attributes": "Oluşturulacak Araç Nitelikleri ve Sensörleri",
           "speed_unit": "Hız Birimi",
-          "custom_lat": "Özel Koordinat Enlem (Ev vb.)",
-          "custom_lon": "Özel Koordinat Boylam (Ev vb.)",
+          "custom_lat": "Referans / Ev Enlemi (HA Ev Konumundan Otomatik Alındı)",
+          "custom_lon": "Referans / Ev Boylamı (HA Ev Konumundan Otomatik Alındı)",
           "scan_interval": "Yenileme Sıklığı (Saniye)"
+        },
+        "data_description": {
+          "route_mode": "'Tüm Hatlar' seçilirse durağa yaklaşan her otobüs takip edilir. Sadece belirli hatları filtrelemek için 'Belli Hatlar' seçin.",
+          "selected_routes": "Yukarıda 'Belli Hatlar' seçtiyseniz bu duraktan geçen hatlar arasından istediklerinizi işaretleyin ('Tüm Hatlar' modunda yoksayılır).",
+          "vehicle_limit_mode": "'En Yakın N Sayıda Araç' her araç sırası (Araç 1..N) için ayrı sensörler oluşturur. 'Tüm Araçlar' ise tüm yaklaşan araç listesini genel durak sensörünün niteliklerine (attributes) yazar ve sadece 1. araç için tekil sensör açar.",
+          "vehicle_limit_n": "Kaç adet yaklaşan otobüs için ayrı sensör grubu (Araç 1, Araç 2...) oluşturulacağını belirler (1-10 arası).",
+          "stop_attributes": "Her araç için hangi sensörlerin oluşturulacağını seçin. 'Harita Takipçisi (device_tracker)' seçilirse yaklaşan otobüs Home Assistant Haritasında canlı görünür.",
+          "speed_unit": "Araç hız sensörü ve nitelikleri için birim (km/h veya mph).",
+          "custom_lat": "Bu değer Home Assistant'taki Ev Konumunuzdan (Ayarlar -> Sistem -> Genel) otomatik doldurulmuştur. Yukarıda 'Özel Koordinata (Eve) Mesafesi' seçiliyse otobüsün bu noktaya kuş uçuşu mesafesini (metre) hesaplar.",
+          "custom_lon": "Home Assistant Ev Konumunuzdan otomatik alınan boylam değeri. İsterseniz başka bir referans noktanın boylamıyla değiştirebilirsiniz.",
+          "scan_interval": "İETT servisinden canlı durak verisinin kaç saniyede bir çekileceği (Önerilen: 30 sn)."
         }
       },
       "route": {
@@ -45,6 +62,9 @@
         "description": "Takip etmek istediğiniz hat kodunu (örn. 500T, 14M) veya hat adını girin.",
         "data": {
           "route_query": "Hat Kodu veya Adı"
+        },
+        "data_description": {
+          "route_query": "Tam hat kodunu (örn. 14M) veya güzergah adını (örn. Kavacık) yazabilirsiniz."
         }
       },
       "route_select": {
@@ -56,24 +76,38 @@
       },
       "route_config": {
         "title": "Hat Nitelik ve Sefer Ayarları",
-        "description": "{route_code} hattı için aktif araç, sefer saati ve duyuru takip parametrelerini belirleyin.",
+        "description": "**{route_code}** hattı için oluşturulacak sensörleri, sefer yönünü ve depar (güzergah varyantı) filtrelerini belirleyin.",
         "data": {
           "include_active_buses": "Aktif Araç Sayısı Sensörü",
-          "include_announcements": "Hat Duyuruları Sensörü",
-          "include_schedule": "Planlanan Kalkış Saati Sensörü",
+          "include_announcements": "Hat Duyuruları ve Uyarı Sensörü",
+          "include_schedule": "Sıradaki Planlanan Kalkış Saati Sensörü",
           "direction_filter": "Kalkış Saati Yön Filtresi",
-          "depar_mode": "Depar / Varyant Filtresi",
-          "selected_depars": "Seçili Deparlar",
+          "depar_mode": "Depar / Güzergah Varyant Filtresi",
+          "selected_depars": "Seçili Deparlar (Varyantlar)",
           "scan_interval": "Yenileme Sıklığı (Saniye)"
+        },
+        "data_description": {
+          "include_active_buses": "Şu anda bu hatta sefer yapan toplam otobüs sayısını (Gidiş/Dönüş dağılımı ve araç listesiyle) gösteren sensör oluşturur.",
+          "include_announcements": "İETT'nin bu hat için yayınladığı anlık arıza, gecikme ve güzergah değişikliği duyurularını takip eder.",
+          "include_schedule": "Tarifeye göre sıradaki kalkışa kaç dakika kaldığını (İstanbul yerel saati ve gün tipine göre) gösteren sensör oluşturur.",
+          "direction_filter": "Kalkış saati sensörünün sadece Gidiş (G), sadece Dönüş (D) veya her iki yön için oluşturulacağını seçin.",
+          "depar_mode": "Bazı hatların ara duraklardan kalkan kısa/ek seferleri (D1, D2 vb. deparlar) vardır. Sadece ana güzergahı (_D0) takip etmek için 'Deparları Hariç Tut' seçebilirsiniz.",
+          "selected_depars": "Yukarıda 'Sadece Seçili Deparlar' işaretlendiyse hangi güzergah varyantlarının dahil edileceğini seçin.",
+          "scan_interval": "Aktif hat verisinin kaç saniyede bir güncelleneceği (Önerilen: 30 sn)."
         }
       },
       "vehicle": {
-        "title": "Tekil Araç Takibi",
-        "description": "Takip etmek istediğiniz otobüsün kapı numarasını strict X-NNNN formatında girin (örn. C-1753, A-001). Plaka kabul edilmez.",
+        "title": "Tekil Araç Takibi (Strict Kapı No)",
+        "description": "Takip etmek istediğiniz otobüsün kapı numarasını tireli **X-NNNN** formatında girin (örn. `C-1753`, `A-001`, `M-1042`). Plaka eşleşmesi kararsız olduğu için plaka kabul edilmez.",
         "data": {
           "kapino": "Kapı Numarası (X-NNNN)",
           "speed_unit": "Hız Birimi",
           "scan_interval": "Yenileme Sıklığı (Saniye)"
+        },
+        "data_description": {
+          "kapino": "1 veya 2 harf, tire (-) ve 3-5 rakamdan oluşmalıdır (Örn: C-1753). Otobüs için Plaka, Hız, Aktif Hat, Koordinat ve Harita Takipçisi (device_tracker) oluşturulur.",
+          "speed_unit": "Otobüs hız sensörü için birim (km/h veya mph).",
+          "scan_interval": "Araç konumunun kaç saniyede bir sorgulanacağı (Önerilen: 30 sn)."
         }
       }
     },
@@ -84,7 +118,7 @@
       "search_failed": "Arama servisine ulaşılamadı.",
       "invalid_route_query": "Lütfen geçerli bir hat kodu veya adı girin.",
       "route_search_failed": "Hat arama servisine ulaşılamadı.",
-      "invalid_kapino_strict": "Kapı numarası X-NNNN formatında olmalıdır (örn. C-1753, A-001). Plaka kabul edilmez."
+      "invalid_kapino_strict": "Kapı numarası X-NNNN formatında olmalıdır (örn. C-1753, A-001). Plaka veya tiresiz giriş kabul edilmez."
     },
     "abort": {
       "already_configured": "Bu takip profili zaten eklenmiş."
@@ -93,22 +127,27 @@
   "options": {
     "step": {
       "init": {
-        "title": "İETT Seçenekleri",
-        "description": "Takip parametrelerini güncelleyin.",
+        "title": "İETT Takip Seçenekleri",
+        "description": "Mevcut profilin filtrelerini, niteliklerini ve yenileme sıklığını güncelleyin. Kaydettiğinizde profil otomatik yeniden yüklenecektir.",
         "data": {
           "route_mode": "Hat Filtresi Türü",
           "vehicle_limit_mode": "Araç Miktarı Türü",
           "vehicle_limit_n": "Takip Edilecek En Yakın Araç Sayısı (N)",
-          "stop_attributes": "Oluşturulacak Araç Nitelikleri",
+          "stop_attributes": "Oluşturulacak Araç Nitelikleri ve Sensörleri",
           "speed_unit": "Hız Birimi",
-          "custom_lat": "Özel Koordinat Enlem (Ev vb.)",
-          "custom_lon": "Özel Koordinat Boylam (Ev vb.)",
+          "custom_lat": "Referans / Ev Enlemi (HA Ev Konumundan Otomatik Alındı)",
+          "custom_lon": "Referans / Ev Boylamı (HA Ev Konumundan Otomatik Alındı)",
           "include_active_buses": "Aktif Araç Sayısı Sensörü",
           "include_announcements": "Hat Duyuruları Sensörü",
           "include_schedule": "Planlanan Kalkış Saati Sensörü",
           "direction_filter": "Kalkış Saati Yön Filtresi",
           "depar_mode": "Depar / Varyant Filtresi",
           "scan_interval": "Yenileme Sıklığı (Saniye)"
+        },
+        "data_description": {
+          "custom_lat": "Varsayılan olarak Home Assistant Ev Konumunuzdan alınır. 'Özel Koordinata (Eve) Mesafesi' niteliği seçiliyse otobüsün bu noktaya mesafesini hesaplar.",
+          "custom_lon": "Varsayılan olarak Home Assistant Ev Konumunuzdan alınan boylam değeri.",
+          "scan_interval": "Verilerin İETT servisinden kaç saniyede bir güncelleneceği (15-300 sn)."
         }
       }
     }
@@ -122,8 +161,8 @@
     },
     "vehicle_limit_mode": {
       "options": {
-        "nearest_n": "En Yakın N Sayıda Araç",
-        "all": "Tüm Araçlar"
+        "nearest_n": "En Yakın N Sayıda Araç (Araç 1..N Sensörleri)",
+        "all": "Tüm Araçlar (Genel Sensör Niteliklerinde Liste)"
       }
     },
     "stop_attributes": {
@@ -132,11 +171,11 @@
         "plaka": "Plaka",
         "eta": "ETA (Kalan Dakika)",
         "eta_mmss": "Geleceği dk:sn ETA",
-        "coords": "Koordinatlar",
+        "coords": "Koordinatlar (Enlem, Boylam Metni)",
         "coords_tracker": "Koordinatları Harita Takipçisi (device_tracker) Yap",
         "dist_stop": "Durağa Mesafesi (metre)",
-        "dist_custom": "Özel Koordinata (Eve) Mesafesi (metre)",
-        "speed": "Hız",
+        "dist_custom": "Özel Koordinata / Eve Mesafesi (metre)",
+        "speed": "Hız (km/h veya mph)",
         "amenities": "Donanım (Klima, WiFi, USB, Engelli)"
       }
     }

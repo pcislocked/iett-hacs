@@ -192,10 +192,19 @@ class IettConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._available_routes = await client.get_routes_at_stop(self._selected_stop_code)
             return await self.async_step_stop_config()
 
+        def _format_stop_option(s: StopMetadata) -> str:
+            parts: list[str] = []
+            if s.direction:
+                parts.append(f"➔ {s.direction}")
+            if s.district:
+                parts.append(s.district)
+            suffix = f" ({' • '.join(parts)})" if parts else ""
+            return f"{s.dcode} - {s.name}{suffix}"
+
         options = [
             selector.SelectOptionDict(
                 value=s.dcode,
-                label=f"{s.dcode} - {s.name}",
+                label=_format_stop_option(s),
             )
             for s in self._stop_results[:30]
         ]
@@ -224,13 +233,16 @@ class IettConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(f"stop_{dcode}")
         self._abort_if_unique_id_configured()
 
+        dir_suffix = f" - {meta.direction} Yönü" if meta.direction else ""
+        entry_title = f"Durak {dcode} ({meta.name}{dir_suffix})"
+
         if user_input is not None:
             selected_attrs = user_input.get(CONF_STOP_ATTRIBUTES, DEFAULT_STOP_ATTRIBUTES)
             route_mode = user_input.get(CONF_ROUTE_MODE, ROUTE_MODE_ALL)
             selected_routes = user_input.get(CONF_SELECTED_ROUTES, [])
 
             return self.async_create_entry(
-                title=f"Durak {dcode} ({meta.name})",
+                title=entry_title,
                 data={
                     CONF_FEED_TYPE: FEED_STOP,
                     CONF_STOP_CODE: dcode,
@@ -353,7 +365,11 @@ class IettConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="stop_config",
             data_schema=vol.Schema(schema_dict),
-            description_placeholders={"stop_name": meta.name, "stop_code": dcode},
+            description_placeholders={
+                "stop_name": meta.name,
+                "stop_code": dcode,
+                "stop_direction": meta.direction or "-",
+            },
         )
 
     # ------------------------------------------------------------------

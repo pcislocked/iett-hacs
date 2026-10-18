@@ -122,12 +122,14 @@ async def async_setup_entry(
     if feed_type == FEED_STOP:
         dcode = str(entry.data.get(CONF_STOP_CODE, "")).strip()
         stop_name = str(entry.data.get(CONF_STOP_NAME, dcode)).strip()
+        stop_dir = str(entry.data.get("stop_direction") or "").strip()
+        dir_suffix = f" - {stop_dir} Yönü" if stop_dir else ""
 
         stop_device = DeviceInfo(
             identifiers={(DOMAIN, f"stop_{dcode}")},
-            name=f"Durak {dcode} ({stop_name})",
+            name=f"Durak {dcode} ({stop_name}{dir_suffix})",
             manufacturer="İETT",
-            model="Akıllı Durak",
+            model=f"Akıllı Durak ({stop_dir} Yönü)" if stop_dir else "Akıllı Durak",
         )
 
         # General stop status sensor

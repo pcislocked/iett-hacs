@@ -379,8 +379,27 @@ class IettClient:
         for r in res:
             dcode = str(r.get("DURAK_DURAK_KODU") or "").strip()
             name = str(r.get("DURAK_ADI") or "").strip()
+            direction = str(r.get("DURAK_YON_BILGISI") or r.get("SYON") or "").strip() or None
             if dcode:
-                results.append(StopMetadata(dcode=dcode, name=name))
+                results.append(StopMetadata(dcode=dcode, name=name, direction=direction))
+
+        # Enrich top 15 results with full stop metadata (direction & district) in parallel
+        top_slice = results[:15]
+        if top_slice:
+            meta_tasks = [self.get_stop_metadata(s.dcode) for s in top_slice]
+            enriched = await asyncio.gather(*meta_tasks, return_exceptions=True)
+            for idx, item in enumerate(enriched):
+                if isinstance(item, StopMetadata):
+                    results[idx] = StopMetadata(
+                        dcode=top_slice[idx].dcode,
+                        name=top_slice[idx].name or item.name,
+                        latitude=item.latitude,
+                        longitude=item.longitude,
+                        direction=item.direction or top_slice[idx].direction,
+                        district=item.district,
+                        stop_type=item.stop_type,
+                        smart_stop=item.smart_stop,
+                    )
         return results
 
     async def get_stop_metadata(self, dcode: str) -> StopMetadata:

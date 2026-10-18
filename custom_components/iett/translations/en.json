@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Select İETT Tracking Mode",
-        "description": "Choose a tracking profile to add. City-wide Traffic Index and Active Fleet Size sensors will be created automatically on first setup.",
+        "description": "Choose a tracking profile to add. City-wide Traffic Index (Overall, Europe, Anatolia) and Active Fleet Size (bus count only) sensors are created automatically on first setup.\n\nTip: If you only want a live stop/route board on your Dashboard without creating background polling sensors, you can add the `custom:iett-card` Lovelace card directly after setup.",
         "menu_options": {
           "root": "Istanbul City-Wide Root Sensors (3 Traffic + 1 Fleet Size)",
           "stop": "a) Add Stop (Enter/search stop code or name)",
@@ -13,67 +13,101 @@
       },
       "stop": {
         "title": "Search Stop",
-        "description": "Enter the 6-digit stop code (e.g. 220602) or stop name (e.g. Besiktas Meydan).",
+        "description": "Enter the 6-digit stop code (e.g. 220602) or search by stop name (e.g. Besiktas Meydan, Ahmet Mithat Efendi).",
         "data": {
           "stop_query": "Stop Code or Name"
+        },
+        "data_description": {
+          "stop_query": "If you know the 6-digit stop code, enter it directly. If you enter a name, the next step will list matching stops along with their travel direction (➔ Direction • District)."
         }
       },
       "stop_select": {
-        "title": "Select Stop",
-        "description": "Select a stop from search results:",
+        "title": "Select Stop & Direction",
+        "description": "Stops on opposite sides of the street share the same name but have different codes and travel directions. Check the direction in parentheses (➔ Direction • District) to pick the right side:",
         "data": {
-          "selected_stop": "Stop"
+          "selected_stop": "Stop (Code - Name - Direction)"
+        },
+        "data_description": {
+          "selected_stop": "The arrow (➔) indicates which direction buses passing through this stop are heading toward."
         }
       },
       "stop_config": {
         "title": "Stop Attributes & Filters",
-        "description": "Configure tracking parameters and entity attributes for {stop_name} ({stop_code}).",
+        "description": "Configure tracking filters and Home Assistant entities for **{stop_name}** (`{stop_code}` • Direction: **{stop_direction}**).",
         "data": {
           "route_mode": "Route Filter Mode",
           "selected_routes": "Monitored Routes",
           "vehicle_limit_mode": "Vehicle Limit Mode",
           "vehicle_limit_n": "Nearest Vehicles to Track (N)",
-          "stop_attributes": "Vehicle Attributes to Create",
+          "stop_attributes": "Vehicle Attributes & Sensors to Create",
           "speed_unit": "Speed Unit",
-          "custom_lat": "Custom Target Latitude (Home etc.)",
-          "custom_lon": "Custom Target Longitude (Home etc.)",
+          "custom_lat": "Home / Reference Latitude (Auto-filled from HA Home Zone)",
+          "custom_lon": "Home / Reference Longitude (Auto-filled from HA Home Zone)",
           "scan_interval": "Update Interval (Seconds)"
+        },
+        "data_description": {
+          "route_mode": "Choose 'All Routes' to track every bus approaching this stop, or 'Selected Routes' to filter only specific bus lines below.",
+          "selected_routes": "Used only when Route Filter Mode is set to 'Selected Routes'. Pick one or more lines passing through this stop (ignored in 'All Routes' mode).",
+          "vehicle_limit_mode": "'Nearest N Vehicles' creates dedicated sensors for each approaching bus slot (Araç 1..N). 'All Approaching Vehicles' stores the full array inside the general stop sensor's attributes and only creates slot sensors for the 1st closest bus.",
+          "vehicle_limit_n": "How many upcoming buses to create individual sensor sets for (1 to 10). Only applies when 'Nearest N Vehicles' is selected above.",
+          "stop_attributes": "Select which data points to expose as sensors/attributes. Selecting 'Create GPS Device Tracker' will also place the approaching bus live on your Home Assistant Map.",
+          "speed_unit": "Unit of measurement for bus speed sensors and attributes (km/h or mph).",
+          "custom_lat": "Automatically pre-filled from your Home Assistant Home Zone (Settings -> System -> General). Used only when 'Distance to Target/Home (meters)' is selected above to calculate straight-line distance from the bus to your home/target.",
+          "custom_lon": "Automatically pre-filled from your Home Assistant Home Zone longitude. You can keep it as your home or change it to any reference point.",
+          "scan_interval": "How often (in seconds) Home Assistant polls İETT for live arrivals at this stop (Recommended: 30s)."
         }
       },
       "route": {
         "title": "Search Route",
-        "description": "Enter the route code (e.g. 500T, 14M) or name.",
+        "description": "Enter the route code (e.g. 500T, 14M) or route name.",
         "data": {
           "route_query": "Route Code or Name"
+        },
+        "data_description": {
+          "route_query": "Enter an exact route code (e.g. 14M) or search by neighborhood/terminal name (e.g. Kavacik)."
         }
       },
       "route_select": {
         "title": "Select Route",
-        "description": "Select a route from search results:",
+        "description": "Select a route from the search results:",
         "data": {
           "selected_route": "Route"
         }
       },
       "route_config": {
         "title": "Route Options & Departures",
-        "description": "Configure active buses, scheduled departures, and disruption announcements for {route_code}.",
+        "description": "Configure active bus count, scheduled departures, and disruption alerts for route **{route_code}**.",
         "data": {
           "include_active_buses": "Active Buses Sensor",
-          "include_announcements": "Disruption Announcements Sensor",
+          "include_announcements": "Disruption Announcements & Alert Sensor",
           "include_schedule": "Next Timetable Departure Sensor",
           "direction_filter": "Departure Direction Filter",
-          "depar_mode": "Pattern / Depar Filter",
-          "selected_depars": "Selected Depars",
+          "depar_mode": "Pattern / Depar Variant Filter",
+          "selected_depars": "Selected Depar Variants",
           "scan_interval": "Update Interval (Seconds)"
+        },
+        "data_description": {
+          "include_active_buses": "Creates a sensor showing how many buses are currently operating on this route (with Outbound/Inbound counts and bus list).",
+          "include_announcements": "Creates a sensor and problem alert binary_sensor for official İETT route delays, detours, and service notices.",
+          "include_schedule": "Creates countdown sensor(s) showing minutes until the next scheduled timetable departure (filtered by Istanbul local time and weekday/weekend schedule).",
+          "direction_filter": "Choose whether to create next departure sensors for Outbound (G), Inbound (D), or Both directions.",
+          "depar_mode": "Some routes have short-turn or branch variants (D1, D2, etc.). Choose 'Exclude Depars (Main Route D0)' to only track full main-line departures.",
+          "selected_depars": "Used only if 'Selected Depars Only' is chosen above.",
+          "scan_interval": "How often (in seconds) route data is refreshed (Recommended: 30s)."
         }
       },
       "vehicle": {
-        "title": "Single Bus Tracking",
-        "description": "Enter the bus door number in strict X-NNNN format (e.g. C-1753, A-001). License plates are not accepted.",
+        "title": "Single Bus Tracking (Strict Door No)",
+        "description": "Enter the bus door number in hyphenated **X-NNNN** format (e.g. `C-1753`, `A-001`, `M-1042`). License plates are not accepted because plate-to-fleet mapping can change.",
         "data": {
           "kapino": "Door Number (X-NNNN)",
           "speed_unit": "Speed Unit",
           "scan_interval": "Update Interval (Seconds)"
+        },
+        "data_description": {
+          "kapino": "Must be 1-2 letters, a hyphen (-), and 3-5 digits (e.g. C-1753). Creates Plate, Speed, Active Route, Coordinates, and live Map Tracker (device_tracker) entities.",
+          "speed_unit": "Unit of measurement for the vehicle speed sensor (km/h or mph).",
+          "scan_interval": "How often (in seconds) vehicle position is polled (Recommended: 30s)."
         }
       }
     },
@@ -84,7 +118,7 @@
       "search_failed": "Search service is temporarily unavailable.",
       "invalid_route_query": "Please enter a valid route code or name.",
       "route_search_failed": "Route search service is temporarily unavailable.",
-      "invalid_kapino_strict": "Door number must follow strict X-NNNN format (e.g. C-1753, A-001). License plates are not accepted."
+      "invalid_kapino_strict": "Door number must follow strict X-NNNN format with a hyphen (e.g. C-1753, A-001). License plates are not accepted."
     },
     "abort": {
       "already_configured": "This tracking profile is already configured."
@@ -93,22 +127,27 @@
   "options": {
     "step": {
       "init": {
-        "title": "İETT Options",
-        "description": "Update tracking parameters.",
+        "title": "İETT Tracking Options",
+        "description": "Update filters, attributes, and polling interval for this profile. The integration will automatically reload when saved.",
         "data": {
           "route_mode": "Route Filter Mode",
           "vehicle_limit_mode": "Vehicle Limit Mode",
           "vehicle_limit_n": "Nearest Vehicles to Track (N)",
-          "stop_attributes": "Vehicle Attributes to Create",
+          "stop_attributes": "Vehicle Attributes & Sensors to Create",
           "speed_unit": "Speed Unit",
-          "custom_lat": "Custom Target Latitude (Home etc.)",
-          "custom_lon": "Custom Target Longitude (Home etc.)",
+          "custom_lat": "Home / Reference Latitude (Auto-filled from HA Home Zone)",
+          "custom_lon": "Home / Reference Longitude (Auto-filled from HA Home Zone)",
           "include_active_buses": "Active Buses Sensor",
           "include_announcements": "Disruption Announcements Sensor",
           "include_schedule": "Next Timetable Departure Sensor",
           "direction_filter": "Departure Direction Filter",
-          "depar_mode": "Pattern / Depar Filter",
+          "depar_mode": "Pattern / Depar Variant Filter",
           "scan_interval": "Update Interval (Seconds)"
+        },
+        "data_description": {
+          "custom_lat": "Pre-filled from your Home Assistant Home Zone. Used to calculate distance when 'Distance to Target/Home' is enabled.",
+          "custom_lon": "Pre-filled from your Home Assistant Home Zone longitude.",
+          "scan_interval": "How often (in seconds) İETT services are polled (15-300s)."
         }
       }
     }
@@ -122,8 +161,8 @@
     },
     "vehicle_limit_mode": {
       "options": {
-        "nearest_n": "Nearest N Vehicles",
-        "all": "All Approaching Vehicles"
+        "nearest_n": "Nearest N Vehicles (Create Araç 1..N Sensors)",
+        "all": "All Approaching Vehicles (List in General Stop Attributes)"
       }
     },
     "stop_attributes": {
@@ -132,11 +171,11 @@
         "plaka": "License Plate",
         "eta": "ETA (Minutes)",
         "eta_mmss": "Arrival mm:ss Countdown",
-        "coords": "Coordinates",
-        "coords_tracker": "Create GPS Device Tracker (device_tracker)",
+        "coords": "Coordinates (Lat, Lon Text)",
+        "coords_tracker": "Create GPS Device Tracker (device_tracker on Map)",
         "dist_stop": "Distance to Stop (meters)",
         "dist_custom": "Distance to Target/Home (meters)",
-        "speed": "Speed",
+        "speed": "Speed (km/h or mph)",
         "amenities": "Amenities (AC, WiFi, USB, Accessibility)"
       }
     }
