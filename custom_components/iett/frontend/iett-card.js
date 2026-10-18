@@ -4,6 +4,9 @@
  * Zero sensor dependency on-demand WebSocket fetching with visibility-aware lifecycle.
  */
 
+(() => {
+  "use strict";
+
 function escapeHtml(unsafe) {
   if (unsafe === null || unsafe === undefined) return "";
   return String(unsafe)
@@ -629,9 +632,12 @@ if (!customElements.get("iett-card-editor")) {
 }
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "iett-card",
-  name: "İETT Canlı Kartı",
-  description: "Sensörsüz on-demand çalışan İETT Akıllı Durak ve Hat kartı",
-  preview: true,
-});
+if (!window.customCards.some((card) => card && card.type === "iett-card")) {
+  window.customCards.push({
+    type: "iett-card",
+    name: "İETT Canlı Kartı",
+    description: "Sensörsüz on-demand çalışan İETT Akıllı Durak ve Hat kartı",
+    preview: true,
+  });
+}
+})();

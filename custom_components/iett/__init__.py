@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -71,8 +72,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def _async_register_frontend(hass: HomeAssistant) -> None:
     """Register the bundled iett-card.js static path and Lovelace resource."""
-    if hass.data.get(DOMAIN, {}).get("frontend_registered"):
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get("frontend_registered"):
         return
+    domain_data["frontend_registered"] = True
 
     js_file = Path(__file__).parent / "frontend" / "iett-card.js"
     if not js_file.exists():
@@ -87,9 +90,15 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
             )
         except (ImportError, AttributeError):
             if hasattr(hass.http, "register_static_path"):
-                hass.http.register_static_path(
-                    FRONTEND_STATIC_URL, str(js_file), cache_headers=False
-                )
+                try:
+                    hass.http.register_static_path(
+                        FRONTEND_STATIC_URL, str(js_file), cache_headers=False
+                    )
+                except RuntimeError:
+                    pass
+        except RuntimeError:
+            # Route "/iett_static/iett-card.js" already registered on HTTP router
+            _LOGGER.debug("Static path %s already registered", FRONTEND_STATIC_URL)
 
         try:
             from homeassistant.components.frontend import add_extra_js_url
@@ -98,30 +107,30 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
         except Exception:  # noqa: BLE001
             pass
 
-    hass.data.setdefault(DOMAIN, {})["frontend_registered"] = True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up İETT from a config entry."""
     hass_domain_data = hass.data.setdefault(DOMAIN, {})
+    setup_lock: asyncio.Lock = hass_domain_data.setdefault("_setup_lock", asyncio.Lock())
 
-    # 1. Initialize shared standalone IettClient
-    if "client" not in hass_domain_data:
-        session = async_get_clientsession(hass)
-        hass_domain_data["client"] = IettClient(session)
-    client: IettClient = hass_domain_data["client"]
+    async with setup_lock:
+        # 1. Initialize shared standalone IettClient
+        if "client" not in hass_domain_data:
+            session = async_get_clientsession(hass)
+            hass_domain_data["client"] = IettClient(session)
+        client: IettClient = hass_domain_data["client"]
 
-    # 2. Initialize shared singleton Root Coordinator for the 4 root sensors
-    if "root_coordinator" not in hass_domain_data:
-        root_coord = IettRootCoordinator(hass, client)
-        await root_coord.async_config_entry_first_refresh()
-        hass_domain_data["root_coordinator"] = root_coord
+        # 2. Initialize shared singleton Root Coordinator for the 4 root sensors
+        if "root_coordinator" not in hass_domain_data:
+            root_coord = IettRootCoordinator(hass, client)
+            await root_coord.async_config_entry_first_refresh()
+            hass_domain_data["root_coordinator"] = root_coord
 
-    # 3. Register WebSocket API commands for on-demand Lovelace card
-    async_register_websocket_handlers(hass)
+        # 3. Register WebSocket API commands for on-demand Lovelace card
+        async_register_websocket_handlers(hass)
 
-    # 4. Register bundled frontend Lovelace card resource
-    await _async_register_frontend(hass)
+        # 4. Register bundled frontend Lovelace card resource
+        await _async_register_frontend(hass)
 
     # 5. Initialize Entry Coordinator
     coord = IettEntryCoordinator(hass, entry, client)

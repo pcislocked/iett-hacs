@@ -129,4 +129,4 @@ ANNOUNCEMENT_RAM_CACHE_TTL: Final = 600
 # Services & Frontend
 SERVICE_REFRESH_FLEET: Final = "refresh_fleet"
 FRONTEND_STATIC_URL: Final = "/iett_static/iett-card.js"
-FRONTEND_VERSION: Final = "2.0.0"
+FRONTEND_VERSION: Final = "2.0.2"

@@ -210,3 +210,45 @@ async def test_async_setup_and_unload_entry(hass: MagicMock) -> None:
         unload_ok = await async_unload_entry(hass, entry)
         assert unload_ok is True
         assert entry.entry_id not in hass.data[DOMAIN]
+
+
+async def test_concurrent_setup_entries_does_not_duplicate_static_route(hass: MagicMock) -> None:
+    import asyncio
+
+    entry1 = _mock_entry("stop_entry_1", {CONF_FEED_TYPE: FEED_STOP, "stop_code": "220601"})
+    entry2 = _mock_entry("stop_entry_2", {CONF_FEED_TYPE: FEED_STOP, "stop_code": "219302"})
+    hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
+
+    register_calls = 0
+
+    async def slow_register_static_paths(configs: Any) -> None:
+        nonlocal register_calls
+        register_calls += 1
+        await asyncio.sleep(0.02)
+        if register_calls > 1:
+            raise RuntimeError(
+                "Added route will never be executed, method GET is already registered"
+            )
+
+    hass.http = MagicMock()
+    hass.http.async_register_static_paths = slow_register_static_paths
+
+    with (
+        patch("custom_components.iett.async_get_clientsession", return_value=MagicMock()),
+        patch("custom_components.iett.IettClient"),
+        patch(
+            "custom_components.iett.IettRootCoordinator.async_config_entry_first_refresh",
+            new=AsyncMock(),
+        ),
+        patch(
+            "custom_components.iett.IettEntryCoordinator.async_config_entry_first_refresh",
+            new=AsyncMock(),
+        ),
+    ):
+        res1, res2 = await asyncio.gather(
+            async_setup_entry(hass, entry1),
+            async_setup_entry(hass, entry2),
+        )
+        assert res1 is True
+        assert res2 is True
+        assert register_calls == 1
