@@ -1,9 +1,9 @@
 # İETT — Istanbul Bus Tracker for Home Assistant (v2.1)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![Tests](https://img.shields.io/badge/tests-88%20passed-brightgreen)](#development--testing)
+[![Tests](https://img.shields.io/badge/tests-104%20passed-brightgreen)](#development--testing)
 [![HA](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-2.1.2-blue)](https://github.com/pcislocked/iett-hacs/releases)
+[![Version](https://img.shields.io/badge/version-2.1.3-blue)](https://github.com/pcislocked/iett-hacs/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A **100% Standalone & Serverless** Home Assistant custom integration for real-time Istanbul public transport tracking. Communicates directly with official İETT SOAP, NTCAPI, and İBB TKM endpoints without requiring any external proxy or middleware.
