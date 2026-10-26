@@ -1,7 +1,7 @@
 # İETT — Istanbul Bus Tracker for Home Assistant (v2.1)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![Tests](https://img.shields.io/badge/tests-86%20passed-brightgreen)](#development--testing)
+[![Tests](https://img.shields.io/badge/tests-88%20passed-brightgreen)](#development--testing)
 [![HA](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-41BDF5?logo=home-assistant)](https://www.home-assistant.io/)
 [![Version](https://img.shields.io/badge/version-2.1.2-blue)](https://github.com/pcislocked/iett-hacs/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -172,7 +172,7 @@ action:
 # Install test dependencies
 pip install -r requirements_test.txt
 
-# Run pytest test suite (86 tests)
+# Run pytest test suite (88 tests)
 python -m pytest -v
 
 # Run linter & formatter checks
