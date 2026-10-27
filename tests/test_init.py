@@ -277,9 +277,14 @@ async def test_setup_entry_root_first_refresh_failure_raises_not_ready(hass: Mag
 
 
 async def test_frontend_version_has_manifest_and_hash() -> None:
+    import json
+    from pathlib import Path
+
     from custom_components.iett.const import FRONTEND_VERSION
 
-    assert FRONTEND_VERSION.startswith("2.1.2.")
+    manifest_path = Path(__file__).parent.parent / "custom_components" / "iett" / "manifest.json"
+    manifest_version = json.loads(manifest_path.read_text(encoding="utf-8"))["version"]
+    assert FRONTEND_VERSION.startswith(f"{manifest_version}.")
     parts = FRONTEND_VERSION.split(".")
     assert len(parts) >= 4
     assert len(parts[3]) == 8
