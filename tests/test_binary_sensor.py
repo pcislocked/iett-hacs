@@ -28,14 +28,30 @@ def test_route_alert_binary_sensor_on() -> None:
     coord = _mock_coord(
         {
             "has_alert": True,
-            "announcements": [{"type": "Uyarı", "message": "Gecikme var"}],
+            "announcements": [
+                {
+                    "route_code": "500T",
+                    "type": "Uyarı",
+                    "message": "Gecikme var",
+                    "updated_at": "27.10.2026 14:30:00",
+                }
+            ],
         }
     )
     device = DeviceInfo(identifiers={(DOMAIN, "route_500T")})
     sensor = IettRouteAlertBinarySensor(coord, _mock_entry(), device)
 
     assert sensor.is_on is True
-    assert len(sensor.extra_state_attributes["announcements"]) == 1
+    attrs = sensor.extra_state_attributes
+    assert len(attrs["announcements"]) == 1
+    assert attrs["duyuru_sayisi"] == 1
+    assert attrs["announcement_count"] == 1
+    assert attrs["sorun"] == "[Uyarı] Gecikme var"
+    assert attrs["problem"] == "[Uyarı] Gecikme var"
+    assert attrs["son_duyuru"] == "Gecikme var"
+    assert attrs["duyuru_tipi"] == "Uyarı"
+    assert attrs["guncelleme_saati"] == "27.10.2026 14:30:00"
+    assert attrs["duyurular"] == ["[Uyarı] Gecikme var"]
 
 
 def test_route_alert_binary_sensor_off() -> None:
@@ -49,7 +65,14 @@ def test_route_alert_binary_sensor_off() -> None:
     sensor = IettRouteAlertBinarySensor(coord, _mock_entry(), device)
 
     assert sensor.is_on is False
-    assert sensor.extra_state_attributes["announcements"] == []
+    attrs = sensor.extra_state_attributes
+    assert attrs["announcements"] == []
+    assert attrs["duyuru_sayisi"] == 0
+    assert attrs["announcement_count"] == 0
+    assert attrs["sorun"] == "Aktif sefer sorunu / duyuru bulunmuyor"
+    assert attrs["son_duyuru"] is None
+    assert attrs["duyuru_tipi"] is None
+    assert attrs["duyurular"] == []
 
 
 async def test_async_setup_entry_binary_sensor(hass: MagicMock) -> None:

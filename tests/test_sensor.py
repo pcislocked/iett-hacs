@@ -23,6 +23,7 @@ from custom_components.iett.const import (
 from custom_components.iett.sensor import (
     IettRootFleetSizeSensor,
     IettRootTrafficSensor,
+    IettRouteActiveAnnouncementSensor,
     IettRouteActiveBusesSensor,
     IettRouteAnnouncementsSensor,
     IettRouteDepartureSensor,
@@ -231,6 +232,10 @@ class TestRouteSensors:
             {
                 "active_buses_count": 8,
                 "announcement_count": 2,
+                "announcements": [
+                    {"type": "Uyarı", "message": "Gecikme var", "updated_at": "14:30"},
+                    {"type": "Bilgi", "message": "Ek sefer", "updated_at": "14:35"},
+                ],
                 "next_dep_g_min": 14,
                 "next_dep_g_time": "14:45",
             }
@@ -240,6 +245,18 @@ class TestRouteSensors:
 
         ann_s = IettRouteAnnouncementsSensor(coord, entry, _mock_device())
         assert ann_s.native_value == 2
+        assert ann_s.extra_state_attributes["duyuru_sayisi"] == 2
+        assert ann_s.extra_state_attributes["sorun"] == "[Uyarı] Gecikme var"
+        assert ann_s.extra_state_attributes["son_duyuru"] == "Gecikme var"
+        assert ann_s.extra_state_attributes["duyuru_tipi"] == "Uyarı"
+        assert ann_s.extra_state_attributes["duyurular"] == [
+            "[Uyarı] Gecikme var",
+            "[Bilgi] Ek sefer",
+        ]
+
+        active_ann_s = IettRouteActiveAnnouncementSensor(coord, entry, _mock_device())
+        assert active_ann_s.native_value == "[Uyarı] Gecikme var"
+        assert active_ann_s.extra_state_attributes["tam_mesaj"] == "Gecikme var"
 
         dep_s = IettRouteDepartureSensor(
             coord, entry, _mock_device(), "G", "Sıradaki Kalkış (Gidiş)"
