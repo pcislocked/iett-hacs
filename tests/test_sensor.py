@@ -23,6 +23,7 @@ from custom_components.iett.const import (
 from custom_components.iett.sensor import (
     IettRootFleetSizeSensor,
     IettRootTrafficSensor,
+    IettRouteActiveAnnouncementSensor,
     IettRouteActiveBusesSensor,
     IettRouteAnnouncementsSensor,
     IettRouteDepartureSensor,
@@ -231,6 +232,10 @@ class TestRouteSensors:
             {
                 "active_buses_count": 8,
                 "announcement_count": 2,
+                "announcements": [
+                    {"type": "Uyarı", "message": "Gecikme var", "updated_at": "14:30"},
+                    {"type": "Bilgi", "message": "Ek sefer", "updated_at": "14:35"},
+                ],
                 "next_dep_g_min": 14,
                 "next_dep_g_time": "14:45",
             }
@@ -240,6 +245,18 @@ class TestRouteSensors:
 
         ann_s = IettRouteAnnouncementsSensor(coord, entry, _mock_device())
         assert ann_s.native_value == 2
+        assert ann_s.extra_state_attributes["duyuru_sayisi"] == 2
+        assert ann_s.extra_state_attributes["sorun"] == "[Uyarı] Gecikme var"
+        assert ann_s.extra_state_attributes["son_duyuru"] == "Gecikme var"
+        assert ann_s.extra_state_attributes["duyuru_tipi"] == "Uyarı"
+        assert ann_s.extra_state_attributes["duyurular"] == [
+            "[Uyarı] Gecikme var",
+            "[Bilgi] Ek sefer",
+        ]
+
+        active_ann_s = IettRouteActiveAnnouncementSensor(coord, entry, _mock_device())
+        assert active_ann_s.native_value == "[Uyarı] Gecikme var"
+        assert active_ann_s.extra_state_attributes["tam_mesaj"] == "Gecikme var"
 
         dep_s = IettRouteDepartureSensor(
             coord, entry, _mock_device(), "G", "Sıradaki Kalkış (Gidiş)"
@@ -428,3 +445,101 @@ class TestSensorAsyncSetupEntry:
         veh_entities: list[Any] = []
         await async_setup_entry(hass, entry_veh, veh_entities.extend)
         assert len(veh_entities) == 4
+
+
+class TestRouteAnnouncementSensorsEdgeCases:
+    """Edge case tests for announcement sensors."""
+
+    def test_route_announcements_sensor_empty_and_null_data(self) -> None:
+        entry = _mock_entry({CONF_FEED_TYPE: "route", "route_code": "500T"})
+        coord_empty = _mock_coord({"announcement_count": 0, "announcements": []})
+        ann_s = IettRouteAnnouncementsSensor(coord_empty, entry, _mock_device())
+        assert ann_s.native_value == 0
+        attrs = ann_s.extra_state_attributes
+        assert attrs["duyuru_sayisi"] == 0
+        assert attrs["sorun"] == "Aktif duyuru bulunmuyor"
+        assert attrs["duyuru_ozeti"] == "Aktif duyuru bulunmuyor"
+        assert attrs["duyuru_tipi"] is None
+        assert attrs["son_duyuru"] is None
+
+        coord_none = _mock_coord(None)
+        ann_none = IettRouteAnnouncementsSensor(coord_none, entry, _mock_device())
+        assert ann_none.native_value == 0
+        assert ann_none.extra_state_attributes == {}
+
+    def test_route_active_announcement_sensor_empty_and_null_data(self) -> None:
+        entry = _mock_entry({CONF_FEED_TYPE: "route", "route_code": "500T"})
+        coord_empty = _mock_coord({"announcement_count": 0, "announcements": []})
+        active_s = IettRouteActiveAnnouncementSensor(coord_empty, entry, _mock_device())
+        assert active_s.native_value == "Normal"
+        attrs = active_s.extra_state_attributes
+        assert attrs["duyuru_sayisi"] == 0
+        assert attrs["duyuru_ozeti"] == "Aktif duyuru bulunmuyor"
+        assert attrs["tam_mesaj"] is None
+
+        coord_none = _mock_coord(None)
+        active_none = IettRouteActiveAnnouncementSensor(coord_none, entry, _mock_device())
+        assert active_none.native_value == "Normal"
+        assert active_none.extra_state_attributes == {}
+
+    def test_announcement_null_field_safety(self) -> None:
+        entry = _mock_entry({CONF_FEED_TYPE: "route", "route_code": "500T"})
+        coord = _mock_coord(
+            {
+                "announcement_count": 1,
+                "announcements": [
+                    {"type": None, "message": "Arıza bildirimi", "updated_at": None}
+                ],
+            }
+        )
+        ann_s = IettRouteAnnouncementsSensor(coord, entry, _mock_device())
+        attrs = ann_s.extra_state_attributes
+        assert attrs["duyuru_tipi"] is None
+        assert attrs["sorun"] == "Arıza bildirimi"
+        assert attrs["son_duyuru"] == "Arıza bildirimi"
+        assert attrs["guncelleme_saati"] is None
+
+        active_s = IettRouteActiveAnnouncementSensor(coord, entry, _mock_device())
+        assert active_s.native_value == "Arıza bildirimi"
+
+        # Only type present, message None
+        coord_only_type = _mock_coord(
+            {
+                "announcement_count": 1,
+                "announcements": [{"type": "Uyarı", "message": None, "updated_at": None}],
+            }
+        )
+        active_type_s = IettRouteActiveAnnouncementSensor(coord_only_type, entry, _mock_device())
+        assert active_type_s.native_value == "[Uyarı]"
+
+    def test_route_active_announcement_sensor_truncation_255(self) -> None:
+        entry = _mock_entry({CONF_FEED_TYPE: "route", "route_code": "500T"})
+        long_msg = "X" * 320
+        coord = _mock_coord(
+            {
+                "announcement_count": 1,
+                "announcements": [{"type": "Uyarı", "message": long_msg, "updated_at": "12:00"}],
+            }
+        )
+        active_s = IettRouteActiveAnnouncementSensor(coord, entry, _mock_device())
+        val = active_s.native_value
+        assert len(val) == 255
+        assert val.startswith("[Uyarı] X")
+        assert len(active_s.extra_state_attributes["tam_mesaj"]) == 320
+
+    def test_route_announcement_count_decoupled_from_slice(self) -> None:
+        entry = _mock_entry({CONF_FEED_TYPE: "route", "route_code": "500T"})
+        # 12 items truncated to 10 in announcements list, but total count is 12
+        coord = _mock_coord(
+            {
+                "announcement_count": 12,
+                "announcements": [
+                    {"type": "Bilgi", "message": f"Duyuru {i}", "updated_at": "12:00"}
+                    for i in range(10)
+                ],
+            }
+        )
+        ann_s = IettRouteAnnouncementsSensor(coord, entry, _mock_device())
+        assert ann_s.native_value == 12
+        assert ann_s.extra_state_attributes["duyuru_sayisi"] == 12
+        assert ann_s.extra_state_attributes["announcement_count"] == 12

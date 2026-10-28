@@ -199,3 +199,73 @@ def convert_speed(speed_kmh: float | None, unit: str = "kmh") -> int | float | N
     if unit == "mph":
         return round(val * 0.621371, 1)
     return round(val)
+
+
+def format_announcement_item(ann: dict[str, Any]) -> str:
+    """Format single announcement dictionary into '[Type] Message', '[Type]', or 'Message'."""
+    raw_type = ann.get("type")
+    raw_msg = ann.get("message")
+    a_type = str(raw_type).strip() if raw_type is not None else ""
+    a_msg = str(raw_msg).strip() if raw_msg is not None else ""
+    if a_type and a_msg:
+        return f"[{a_type}] {a_msg}"
+    if a_type:
+        return f"[{a_type}]"
+    return a_msg
+
+
+def format_announcement_attributes(
+    coord_data: dict[str, Any] | None,
+    empty_detail_msg: str = "Aktif duyuru bulunmuyor",
+    is_active_sensor: bool = False,
+) -> dict[str, Any]:
+    """Build standardized announcement extra state attributes with null-safety and decoupled count."""
+    if not coord_data:
+        return {}
+
+    anns: list[dict[str, Any]] = coord_data.get("announcements", [])
+    count = int(coord_data.get("announcement_count", len(anns)))
+
+    if anns:
+        first = anns[0]
+        raw_type = first.get("type")
+        raw_msg = first.get("message")
+        raw_time = first.get("updated_at")
+
+        first_type = str(raw_type).strip() if raw_type is not None and str(raw_type).strip() else None
+        first_msg = str(raw_msg).strip() if raw_msg is not None and str(raw_msg).strip() else None
+        first_time = str(raw_time).strip() if raw_time is not None and str(raw_time).strip() else None
+
+        detail = format_announcement_item(first) or empty_detail_msg
+        summary_items = [format_announcement_item(a) for a in anns if format_announcement_item(a)]
+        duyuru_ozeti = " | ".join(summary_items) if summary_items else empty_detail_msg
+    else:
+        detail = empty_detail_msg
+        first_type = None
+        first_msg = None
+        first_time = None
+        summary_items = []
+        duyuru_ozeti = empty_detail_msg
+
+    base_attrs: dict[str, Any] = {
+        "duyuru_sayisi": count,
+        "announcement_count": count,
+        "duyuru_tipi": first_type,
+        "announcement_type": first_type,
+        "guncelleme_saati": first_time,
+        "updated_at": first_time,
+        "duyuru_ozeti": duyuru_ozeti,
+        "duyurular": summary_items,
+        "announcements": anns,
+    }
+
+    if is_active_sensor:
+        base_attrs["tam_mesaj"] = first_msg
+        base_attrs["full_message"] = first_msg
+    else:
+        base_attrs["sorun"] = detail
+        base_attrs["problem"] = detail
+        base_attrs["son_duyuru"] = first_msg
+        base_attrs["latest_announcement"] = first_msg
+
+    return base_attrs

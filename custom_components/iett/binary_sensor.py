@@ -22,6 +22,7 @@ from .const import (
     FEED_ROUTE,
 )
 from .coordinator import IettEntryCoordinator
+from .normalizers import format_announcement_attributes
 
 
 async def async_setup_entry(
@@ -73,8 +74,8 @@ class IettRouteAlertBinarySensor(CoordinatorEntity[IettEntryCoordinator], Binary
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        if not self.coordinator.data:
-            return {}
-        return {
-            "announcements": self.coordinator.data.get("announcements", []),
-        }
+        return format_announcement_attributes(
+            self.coordinator.data,
+            empty_detail_msg="Aktif sefer sorunu / duyuru bulunmuyor",
+            is_active_sensor=False,
+        )

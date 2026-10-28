@@ -51,6 +51,7 @@ from .const import (
     LIMIT_MODE_NEAREST_N,
 )
 from .coordinator import IettEntryCoordinator, IettRootCoordinator
+from .normalizers import format_announcement_attributes, format_announcement_item
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -282,6 +283,7 @@ async def async_setup_entry(
             entities.append(IettRouteActiveBusesSensor(coord, entry, route_device))
         if entry.data.get(CONF_INCLUDE_ANNOUNCEMENTS, True):
             entities.append(IettRouteAnnouncementsSensor(coord, entry, route_device))
+            entities.append(IettRouteActiveAnnouncementSensor(coord, entry, route_device))
         if entry.data.get(CONF_INCLUDE_SCHEDULE, True):
             dir_filter = entry.data.get(CONF_DIRECTION_FILTER, DIR_FILTER_BOTH)
             if dir_filter in (DIR_FILTER_G, DIR_FILTER_BOTH):
@@ -634,7 +636,7 @@ class IettRouteActiveBusesSensor(CoordinatorEntity[IettEntryCoordinator], Sensor
 
 
 class IettRouteAnnouncementsSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntity):
-    """Sensor for route disruption announcements."""
+    """Sensor for route disruption announcements count and full details."""
 
     _attr_native_unit_of_measurement = "duyuru"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -660,11 +662,47 @@ class IettRouteAnnouncementsSensor(CoordinatorEntity[IettEntryCoordinator], Sens
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        return format_announcement_attributes(
+            self.coordinator.data,
+            empty_detail_msg="Aktif duyuru bulunmuyor",
+            is_active_sensor=False,
+        )
+
+
+class IettRouteActiveAnnouncementSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntity):
+    """Sensor for active route disruption text / latest announcement."""
+
+    _attr_icon = "mdi:bullhorn-outline"
+
+    def __init__(
+        self,
+        coordinator: IettEntryCoordinator,
+        entry: ConfigEntry,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_active_announcement"
+        self._attr_name = "Aktif Sefer Duyurusu"
+        self._attr_device_info = device_info
+
+    @property
+    def native_value(self) -> str:
         if not self.coordinator.data:
-            return {}
-        return {
-            "announcements": self.coordinator.data.get("announcements", []),
-        }
+            return "Normal"
+        anns: list[dict[str, Any]] = self.coordinator.data.get("announcements", [])
+        if not anns:
+            return "Normal"
+        text = format_announcement_item(anns[0])
+        return text[:255] if text else "Normal"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return format_announcement_attributes(
+            self.coordinator.data,
+            empty_detail_msg="Aktif duyuru bulunmuyor",
+            is_active_sensor=True,
+        )
 
 
 class IettRouteDepartureSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntity):
