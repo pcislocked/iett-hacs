@@ -51,6 +51,7 @@ from .const import (
     LIMIT_MODE_NEAREST_N,
 )
 from .coordinator import IettEntryCoordinator, IettRootCoordinator
+from .normalizers import format_announcement_attributes, format_announcement_item
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -661,49 +662,11 @@ class IettRouteAnnouncementsSensor(CoordinatorEntity[IettEntryCoordinator], Sens
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        if not self.coordinator.data:
-            return {}
-
-        anns: list[dict[str, Any]] = self.coordinator.data.get("announcements", [])
-        count = len(anns)
-
-        if count > 0:
-            first = anns[0]
-            first_type = str(first.get("type", "")).strip()
-            first_msg = str(first.get("message", "")).strip()
-            first_time = str(first.get("updated_at", "")).strip()
-
-            detail = f"[{first_type}] {first_msg}" if first_type else first_msg
-            summary_items = [
-                f"[{str(a.get('type', '')).strip()}] {str(a.get('message', '')).strip()}"
-                if str(a.get("type", "")).strip()
-                else str(a.get("message", "")).strip()
-                for a in anns
-            ]
-            duyuru_ozeti = " | ".join(summary_items)
-        else:
-            detail = "Aktif duyuru bulunmuyor"
-            first_type = None
-            first_msg = None
-            first_time = None
-            summary_items = []
-            duyuru_ozeti = "Aktif duyuru bulunmuyor"
-
-        return {
-            "sorun": detail,
-            "problem": detail,
-            "duyuru_sayisi": count,
-            "announcement_count": count,
-            "son_duyuru": first_msg,
-            "latest_announcement": first_msg,
-            "duyuru_tipi": first_type,
-            "announcement_type": first_type,
-            "guncelleme_saati": first_time,
-            "updated_at": first_time,
-            "duyuru_ozeti": duyuru_ozeti,
-            "duyurular": summary_items,
-            "announcements": anns,
-        }
+        return format_announcement_attributes(
+            self.coordinator.data,
+            empty_detail_msg="Aktif duyuru bulunmuyor",
+            is_active_sensor=False,
+        )
 
 
 class IettRouteActiveAnnouncementSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntity):
@@ -730,53 +693,16 @@ class IettRouteActiveAnnouncementSensor(CoordinatorEntity[IettEntryCoordinator],
         anns: list[dict[str, Any]] = self.coordinator.data.get("announcements", [])
         if not anns:
             return "Normal"
-        first = anns[0]
-        first_type = str(first.get("type", "")).strip()
-        first_msg = str(first.get("message", "")).strip()
-        text = f"[{first_type}] {first_msg}" if first_type else first_msg
+        text = format_announcement_item(anns[0])
         return text[:255] if text else "Normal"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        if not self.coordinator.data:
-            return {}
-
-        anns: list[dict[str, Any]] = self.coordinator.data.get("announcements", [])
-        count = len(anns)
-
-        if count > 0:
-            first = anns[0]
-            first_type = str(first.get("type", "")).strip()
-            first_msg = str(first.get("message", "")).strip()
-            first_time = str(first.get("updated_at", "")).strip()
-
-            summary_items = [
-                f"[{str(a.get('type', '')).strip()}] {str(a.get('message', '')).strip()}"
-                if str(a.get("type", "")).strip()
-                else str(a.get("message", "")).strip()
-                for a in anns
-            ]
-            duyuru_ozeti = " | ".join(summary_items)
-        else:
-            first_type = None
-            first_msg = None
-            first_time = None
-            summary_items = []
-            duyuru_ozeti = "Aktif duyuru bulunmuyor"
-
-        return {
-            "tam_mesaj": first_msg,
-            "full_message": first_msg,
-            "duyuru_sayisi": count,
-            "announcement_count": count,
-            "duyuru_tipi": first_type,
-            "announcement_type": first_type,
-            "guncelleme_saati": first_time,
-            "updated_at": first_time,
-            "duyuru_ozeti": duyuru_ozeti,
-            "duyurular": summary_items,
-            "announcements": anns,
-        }
+        return format_announcement_attributes(
+            self.coordinator.data,
+            empty_detail_msg="Aktif duyuru bulunmuyor",
+            is_active_sensor=True,
+        )
 
 
 class IettRouteDepartureSensor(CoordinatorEntity[IettEntryCoordinator], SensorEntity):
